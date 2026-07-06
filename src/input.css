@@ -7,8 +7,8 @@
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-html, body { height: 100%; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
-body { overscroll-behavior-y: contain; }
+html, body { height: 100%; overflow: hidden; }
+body { overscroll-behavior-y: contain; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
 
 .leaflet-control-attribution { display: none !important; }
 .leaflet-vignette { box-shadow: inset 0 0 60px rgba(0,0,0,0.4); pointer-events: none; }
