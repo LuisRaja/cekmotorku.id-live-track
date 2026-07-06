@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏍</text></svg>">
     <title>cekMotormu.id - Live Tracking & Speedometer</title>
 
     <!-- Tailwind CSS CDN -->
@@ -760,6 +761,10 @@
         }
 
         function showResult() {
+            // Guard: bail if share-preview not in DOM
+            const preview = $('share-preview');
+            if (!preview) return;
+
             const avgSpeed = getAvgSpeed();
             const elapsed = getElapsedSeconds();
             const trackName = $('in-track').value || 'Rute Aktif';
@@ -767,25 +772,28 @@
             const notes = $('in-notes').value;
             const odometer = $('in-odometer').value;
 
-            // Populate card
-            $('share-title').textContent = trackName.toUpperCase();
-            $('share-motor-label').textContent = motorName;
-            $('share-dist').textContent = totalDistance.toFixed(2);
-            $('share-time').textContent = formatTime(elapsed).slice(0, 5);
-            $('share-avg').textContent = avgSpeed.toFixed(1);
-            $('share-top').textContent = topSpeed;
-            $('share-elevation').textContent = odometer ? odometer + ' km' : '0 hm';
-            $('share-lean').textContent = `Lean: ${Math.min(45, Math.round(avgSpeed * 0.3))}°`;
+            const setText = (id, val) => { const el = $(id); if (el) el.textContent = val; };
+            const setAttr = (id, attr, val) => { const el = $(id); if (el) el.setAttribute(attr, val); };
+
+            // Populate card (with null safety)
+            setText('share-title', trackName.toUpperCase());
+            setText('share-motor-label', motorName);
+            setText('share-dist', totalDistance.toFixed(2));
+            setText('share-time', formatTime(elapsed).slice(0, 5));
+            setText('share-avg', avgSpeed.toFixed(1));
+            setText('share-top', String(topSpeed));
+            setText('share-elevation', odometer ? odometer + ' km' : '0 hm');
+            setText('share-lean', `Lean: ${Math.min(45, Math.round(avgSpeed * 0.3))}°`);
 
             // Route SVG
             const pathD = generateRouteSvgPath();
-            $('share-route-path').setAttribute('d', pathD || 'M30,140 L50,110 L45,80 L75,60');
+            setAttr('share-route-path', 'd', pathD || 'M30,140 L50,110 L45,80 L75,60');
             const pts = generateRouteSvgPoints();
             if (coordinates.length > 0) {
-                $('share-start-dot').setAttribute('cx', pts.sx);
-                $('share-start-dot').setAttribute('cy', pts.sy);
-                $('share-start-inner').setAttribute('cx', pts.sx);
-                $('share-start-inner').setAttribute('cy', pts.sy);
+                setAttr('share-start-dot', 'cx', pts.sx);
+                setAttr('share-start-dot', 'cy', pts.sy);
+                setAttr('share-start-inner', 'cx', pts.sx);
+                setAttr('share-start-inner', 'cy', pts.sy);
             }
 
             // Histogram bars
@@ -844,6 +852,7 @@
             const routeSvg = $('share-route-svg');
             const distVal = $('share-dist');
             const topVal = $('share-top');
+            if (!card || !routeSvg || !distVal || !topVal) return;
             const els = {
                 elevationChart: document.querySelector('.share-elevation-chart'),
                 elevationLabel: document.querySelector('.share-elevation-label'),
