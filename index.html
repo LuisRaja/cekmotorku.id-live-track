@@ -8,24 +8,11 @@
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏍</text></svg>">
     <title>cekMotormu.id - Live Tracking & Speedometer</title>
 
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Tailwind CSS (local build) -->
+    <link rel="stylesheet" href="style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;700;900&family=Inter:wght@300;400;600;700;900&display=swap" rel="stylesheet">
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        brand: '#CCFF00',
-                        darkBg: '#121212',
-                        cardBg: '#1E1E1E'
-                    }
-                }
-            }
-        }
-    </script>
 
     <!-- Leaflet.js -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -60,8 +47,6 @@
         }
 
         #toast.show { opacity: 1; }
-
-        .font-display { font-family: 'Archivo', sans-serif; }
     </style>
 </head>
 <body class="bg-black h-screen w-full flex items-center justify-center overflow-hidden font-sans">
@@ -121,42 +106,43 @@
                 </label>
             </div>
 
-            <!-- SPEED HUD -->
-            <div id="speed-hud" class="absolute inset-0 z-30 flex flex-col justify-center items-center p-6 bg-gradient-to-b from-black/50 via-transparent to-black/90 pointer-events-none fade-transition">
-                <div class="text-center mt-[-60px]">
-                    <div id="hud-current-speed" class="text-[clamp(4rem,20vw,9rem)] font-black text-brand tracking-tighter leading-none transition-all duration-100 drop-shadow-[0_0_25px_rgba(204,255,0,0.2)]">0</div>
-                    <div class="text-[10px] font-black tracking-[0.3em] text-zinc-400 uppercase mt-2">KM/JAM</div>
+            <!-- SPEED HUD (compact corner indicator) -->
+            <div id="speed-hud" class="absolute top-4 left-4 z-30 flex items-center gap-2 pointer-events-none fade-transition">
+                <div class="bg-black/70 backdrop-blur-sm px-3 py-1.5 rounded-full border border-zinc-800/60 flex items-baseline gap-1">
+                    <span id="hud-current-speed" class="text-lg font-black text-brand tracking-tight">0</span>
+                    <span class="text-[8px] font-bold text-zinc-400 tracking-wide">KM/H</span>
                 </div>
-                <div class="w-full grid grid-cols-2 gap-4 mt-8 pointer-events-auto bg-zinc-900/80 backdrop-blur-md p-4 rounded-2xl border border-zinc-800/80 shadow-2xl max-w-xs">
-                    <div class="text-center border-r border-zinc-800">
-                        <span class="text-[9px] text-zinc-400 block uppercase font-bold tracking-wider">Top Speed</span>
-                        <span id="hud-top-speed" class="text-xl font-black text-white">0 <span class="text-[10px] font-normal text-zinc-400">km/h</span></span>
-                    </div>
-                    <div class="text-center">
-                        <span class="text-[9px] text-zinc-400 block uppercase font-bold tracking-wider">G-Force (Est)</span>
-                        <span id="hud-gforce" class="text-xl font-black text-brand">1.0 <span class="text-[10px] font-normal text-zinc-400">G</span></span>
-                    </div>
+                <div class="bg-black/70 backdrop-blur-sm px-2.5 py-1.5 rounded-full border border-zinc-800/60 flex items-center gap-1.5">
+                    <span class="text-[8px] text-zinc-500 font-semibold">G:</span>
+                    <span id="hud-gforce" class="text-xs font-black text-brand">1.0</span>
                 </div>
             </div>
 
             <!-- DASHBOARD STATS -->
             <div class="absolute bottom-6 left-4 right-4 z-40 bg-zinc-900/95 backdrop-blur-xl rounded-2xl p-4 border border-zinc-800/80 shadow-[0_10px_30px_rgba(0,0,0,0.5)] flex flex-col gap-3">
                 <div class="flex justify-between items-center border-b border-zinc-800/80 pb-2">
-                    <div id="lbl-track" class="text-[10px] font-black tracking-widest uppercase text-zinc-300 truncate w-32">RUTE AKTIF</div>
-                    <div id="lbl-motor" class="text-[10px] px-2 py-0.5 rounded bg-brand/10 text-brand font-black border border-brand/20 tracking-wide uppercase truncate max-w-[100px]">-</div>
+                    <div id="lbl-track" class="text-[10px] font-black tracking-widest uppercase text-zinc-300 truncate">RUTE AKTIF</div>
+                    <div class="flex items-center gap-2">
+                        <div id="dash-speed" class="text-xs font-black text-brand tracking-tight">0 <span class="text-[8px] font-normal text-zinc-400">km/h</span></div>
+                        <div id="lbl-motor" class="text-[10px] px-2 py-0.5 rounded bg-brand/10 text-brand font-black border border-brand/20 tracking-wide uppercase truncate">-</div>
+                    </div>
                 </div>
-                <div class="grid grid-cols-3 gap-2 text-center pt-1">
+                <div class="grid grid-cols-4 gap-1 text-center pt-1">
                     <div>
-                        <div class="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">Waktu</div>
-                        <div id="stat-time" class="text-lg font-black text-white tracking-tight mt-0.5">00:00</div>
+                        <div class="text-[8px] font-bold text-zinc-400 uppercase tracking-widest">Speed</div>
+                        <div id="stat-speed" class="text-sm font-black text-brand tracking-tight mt-0.5">0 <span class="text-[7px] font-normal text-zinc-400">km/h</span></div>
                     </div>
                     <div class="border-x border-zinc-800">
-                        <div class="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">Top Speed</div>
-                        <div id="stat-topspeed" class="text-lg font-black text-brand tracking-tight mt-0.5">0 <span class="text-[9px] font-normal text-white">km/h</span></div>
+                        <div class="text-[8px] font-bold text-zinc-400 uppercase tracking-widest">Top Speed</div>
+                        <div id="stat-topspeed" class="text-sm font-black text-white tracking-tight mt-0.5">0 <span class="text-[7px] font-normal text-zinc-400">km/h</span></div>
                     </div>
                     <div>
-                        <div class="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">Jarak</div>
-                        <div id="stat-distance" class="text-lg font-black text-white tracking-tight mt-0.5">0.0 <span class="text-[9px] font-normal text-zinc-400">km</span></div>
+                        <div class="text-[8px] font-bold text-zinc-400 uppercase tracking-widest">Jarak</div>
+                        <div id="stat-distance" class="text-sm font-black text-white tracking-tight mt-0.5">0.0 <span class="text-[7px] font-normal text-zinc-400">km</span></div>
+                    </div>
+                    <div class="border-l border-zinc-800">
+                        <div class="text-[8px] font-bold text-zinc-400 uppercase tracking-widest">Waktu</div>
+                        <div id="stat-time" class="text-sm font-black text-white tracking-tight mt-0.5">00:00</div>
                     </div>
                 </div>
             </div>
@@ -212,9 +198,9 @@
             <button id="btn-download-share" class="bg-brand text-black text-xs font-bold px-4 py-2 rounded-full">Download</button>
         </div>
 
-        <div id="share-card-wrapper" class="flex-1 flex items-center justify-center p-4 overflow-y-auto">
-            <div id="share-card" class="relative w-full max-w-[360px] bg-cover bg-center rounded-[32px] overflow-hidden shadow-2xl border border-zinc-800/80 flex flex-col justify-between text-white"
-                 style="background-image: linear-gradient(145deg, #1a1a2e, #0a0a0a); min-height: 480px;">
+        <div id="share-card-wrapper" class="flex-1 flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+            <div id="share-card" class="relative w-full max-w-[360px] bg-cover bg-center rounded-[24px] sm:rounded-[32px] overflow-hidden shadow-2xl border border-zinc-800/80 flex flex-col justify-between text-white"
+                 style="background-image: linear-gradient(145deg, #1a1a2e, #0a0a0a); min-height: 420px; max-height: 90vh;">
                 
                 <div id="share-overlay" class="absolute inset-0 bg-gradient-to-b from-black/50 via-black/20 to-black/90 z-0"></div>
 
@@ -337,6 +323,7 @@
         let currentTrackId = null;
         let socket = null;
         let shareStyle = 'standard';
+        let followUser = false;
 
         const canvas = document.getElementById('route-canvas');
         const ctx = canvas.getContext('2d');
@@ -449,6 +436,7 @@
             map.on('move', () => {
                 if (!customBg.classList.contains('hidden')) drawCanvasRoute();
             });
+            map.on('dragstart', () => { followUser = false; });
         }
 
         // === WAKE LOCK ===
@@ -537,6 +525,7 @@
             $('icon-play').classList.add('hidden');
             $('icon-pause').classList.remove('hidden');
 
+            followUser = true;
             startTime = Date.now();
             pausedDuration = 0;
             pauseStart = null;
@@ -604,11 +593,12 @@
             routeLine.setLatLngs([]);
             if (currentMarker) { map.removeLayer(currentMarker); currentMarker = null; }
             $('stat-time').innerText = '00:00';
-            $('stat-topspeed').innerHTML = '0 <span class="text-[9px] font-normal text-white">km/h</span>';
-            $('stat-distance').innerHTML = '0.0 <span class="text-[9px] font-normal text-zinc-400">km</span>';
+            $('stat-speed').innerHTML = '0 <span class="text-[7px] font-normal text-zinc-400">km/h</span>';
+            $('dash-speed').innerHTML = '0 <span class="text-[8px] font-normal text-zinc-400">km/h</span>';
+            $('stat-topspeed').innerHTML = '0 <span class="text-[7px] font-normal text-zinc-400">km/h</span>';
+            $('stat-distance').innerHTML = '0.0 <span class="text-[7px] font-normal text-zinc-400">km</span>';
             $('hud-current-speed').innerText = '0';
-            $('hud-top-speed').innerHTML = '0 <span class="text-[10px] font-normal text-zinc-400">km/h</span>';
-            $('hud-gforce').innerHTML = '1.0 <span class="text-[10px] font-normal text-zinc-400">G</span>';
+            $('hud-gforce').innerText = '1.0';
         }
 
         function onPosition(position) {
@@ -617,13 +607,14 @@
             const currentSpeedKmH = speed && speed > 0 ? Math.round(speed * 3.6) : 0;
 
             $('hud-current-speed').innerText = currentSpeedKmH;
+            $('stat-speed').innerHTML = `${currentSpeedKmH} <span class="text-[7px] font-normal text-zinc-400">km/h</span>`;
+            $('dash-speed').innerHTML = `${currentSpeedKmH} <span class="text-[8px] font-normal text-zinc-400">km/h</span>`;
             if (currentSpeedKmH > topSpeed) {
                 topSpeed = currentSpeedKmH;
-                $('stat-topspeed').innerHTML = `${topSpeed} <span class="text-[9px] font-normal text-white">km/h</span>`;
-                $('hud-top-speed').innerHTML = `${topSpeed} <span class="text-[10px] font-normal text-zinc-400">km/h</span>`;
+                $('stat-topspeed').innerHTML = `${topSpeed} <span class="text-[7px] font-normal text-zinc-400">km/h</span>`;
             }
             const simulatedGForce = 1.0 + (currentSpeedKmH / 160);
-            $('hud-gforce').innerHTML = `${simulatedGForce.toFixed(1)} <span class="text-[10px] font-normal text-zinc-400">G</span>`;
+            $('hud-gforce').innerText = simulatedGForce.toFixed(1);
 
             if (coordinates.length > 0) {
                 const lastLoc = coordinates[coordinates.length - 1];
@@ -640,7 +631,9 @@
 
             updateLocationMarker(currentLoc);
 
-            map.setView(currentLoc, is3dMode ? 18 : 15);
+            if (followUser) {
+                map.setView(currentLoc, is3dMode ? 18 : 15);
+            }
 
             sendPoint(latitude, longitude, currentSpeedKmH);
             if (!customBg.classList.contains('hidden')) drawCanvasRoute();
@@ -694,6 +687,7 @@
 
         // === MAP CONTROLS ===
         function recenterMap() {
+            followUser = true;
             if (coordinates.length > 0) map.setView(coordinates[coordinates.length - 1], is3dMode ? 18 : 15);
             else navigator.geolocation.getCurrentPosition(p => map.setView([p.coords.latitude, p.coords.longitude], 15));
         }
@@ -817,12 +811,12 @@
                 barsContainer.appendChild(bar);
             }
             // Peak RPM
-            $('share-rpm-peak').textContent = `Peak: ${Math.round(maxSpeed * 65)}`;
+            setText('share-rpm-peak', `Peak: ${Math.round(maxSpeed * 65)}`);
 
             // Notes
             if (notes) {
                 $('share-notes-row').classList.remove('hidden');
-                $('share-notes').textContent = notes;
+                setText('share-notes', notes);
             } else {
                 $('share-notes-row').classList.add('hidden');
             }

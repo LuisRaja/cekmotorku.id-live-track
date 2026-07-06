@@ -19,3 +19,4 @@ body { overscroll-behavior-y: contain; font-family: -apple-system, BlinkMacSyste
 }
 
 #toast.show { opacity: 1; }
+.font-display { font-family: 'Archivo', sans-serif; }
