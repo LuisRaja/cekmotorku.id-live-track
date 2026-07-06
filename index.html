@@ -106,41 +106,26 @@
                 </label>
             </div>
 
-            <!-- SPEED HUD (compact corner indicator) -->
-            <div id="speed-hud" class="absolute top-4 left-4 z-30 flex items-center gap-2 pointer-events-none fade-transition">
-                <div class="bg-black/70 backdrop-blur-sm px-3 py-1.5 rounded-full border border-zinc-800/60 flex items-baseline gap-1">
-                    <span id="hud-current-speed" class="text-lg font-black text-brand tracking-tight">0</span>
-                    <span class="text-[8px] font-bold text-zinc-400 tracking-wide">KM/H</span>
-                </div>
-                <div class="bg-black/70 backdrop-blur-sm px-2.5 py-1.5 rounded-full border border-zinc-800/60 flex items-center gap-1.5">
-                    <span class="text-[8px] text-zinc-500 font-semibold">G:</span>
-                    <span id="hud-gforce" class="text-xs font-black text-brand">1.0</span>
-                </div>
-            </div>
-
             <!-- DASHBOARD STATS -->
-            <div class="absolute bottom-6 left-4 right-4 z-40 bg-zinc-900/95 backdrop-blur-xl rounded-2xl p-4 border border-zinc-800/80 shadow-[0_10px_30px_rgba(0,0,0,0.5)] flex flex-col gap-3">
+            <div class="absolute bottom-6 left-4 right-4 z-40 bg-zinc-900/95 backdrop-blur-xl rounded-2xl p-4 border border-zinc-800/80 shadow-[0_10px_30px_rgba(0,0,0,0.5)] flex flex-col gap-2">
                 <div class="flex justify-between items-center border-b border-zinc-800/80 pb-2">
                     <div id="lbl-track" class="text-[10px] font-black tracking-widest uppercase text-zinc-300 truncate">RUTE AKTIF</div>
-                    <div class="flex items-center gap-2">
-                        <div id="dash-speed" class="text-xs font-black text-brand tracking-tight">0 <span class="text-[8px] font-normal text-zinc-400">km/h</span></div>
-                        <div id="lbl-motor" class="text-[10px] px-2 py-0.5 rounded bg-brand/10 text-brand font-black border border-brand/20 tracking-wide uppercase truncate">-</div>
-                    </div>
+                    <div id="lbl-motor" class="text-[10px] px-2 py-0.5 rounded bg-brand/10 text-brand font-black border border-brand/20 tracking-wide uppercase truncate">-</div>
                 </div>
-                <div class="grid grid-cols-4 gap-1 text-center pt-1">
+                <div class="text-center py-1">
+                    <span id="stat-speed" class="text-5xl font-black text-brand tracking-tight">0</span>
+                    <span class="text-xs font-bold text-zinc-400 tracking-wider ml-1">KM/H</span>
+                </div>
+                <div class="grid grid-cols-3 gap-1 text-center pt-1">
                     <div>
-                        <div class="text-[8px] font-bold text-zinc-400 uppercase tracking-widest">Speed</div>
-                        <div id="stat-speed" class="text-sm font-black text-brand tracking-tight mt-0.5">0 <span class="text-[7px] font-normal text-zinc-400">km/h</span></div>
-                    </div>
-                    <div class="border-x border-zinc-800">
                         <div class="text-[8px] font-bold text-zinc-400 uppercase tracking-widest">Top Speed</div>
                         <div id="stat-topspeed" class="text-sm font-black text-white tracking-tight mt-0.5">0 <span class="text-[7px] font-normal text-zinc-400">km/h</span></div>
                     </div>
-                    <div>
+                    <div class="border-x border-zinc-800">
                         <div class="text-[8px] font-bold text-zinc-400 uppercase tracking-widest">Jarak</div>
                         <div id="stat-distance" class="text-sm font-black text-white tracking-tight mt-0.5">0.0 <span class="text-[7px] font-normal text-zinc-400">km</span></div>
                     </div>
-                    <div class="border-l border-zinc-800">
+                    <div>
                         <div class="text-[8px] font-bold text-zinc-400 uppercase tracking-widest">Waktu</div>
                         <div id="stat-time" class="text-sm font-black text-white tracking-tight mt-0.5">00:00</div>
                     </div>
@@ -455,21 +440,18 @@
             currentMode = mode;
             const btnSpeed = $('btn-mode-speed');
             const btnTouring = $('btn-mode-touring');
-            const speedHud = $('speed-hud');
             const touringInputs = $('touring-inputs');
             const mapContainer = $('map-container');
 
             if (mode === 'speed') {
                 btnSpeed.className = "px-3 py-1 rounded-full text-[10px] font-black tracking-wider bg-brand text-black shadow";
                 btnTouring.className = "px-3 py-1 rounded-full text-[10px] font-black tracking-wider text-zinc-400";
-                speedHud.classList.remove('hidden');
                 touringInputs.classList.add('hidden');
                 mapContainer.classList.remove('opacity-60');
             } else {
                 btnTouring.className = "px-3 py-1 rounded-full text-[10px] font-black tracking-wider bg-brand text-black shadow";
                 btnSpeed.className = "px-3 py-1 rounded-full text-[10px] font-black tracking-wider text-zinc-400";
                 touringInputs.classList.remove('hidden');
-                speedHud.classList.add('hidden');
                 mapContainer.classList.remove('opacity-60');
                 setTimeout(() => map.invalidateSize(), 200);
             }
@@ -593,12 +575,9 @@
             routeLine.setLatLngs([]);
             if (currentMarker) { map.removeLayer(currentMarker); currentMarker = null; }
             $('stat-time').innerText = '00:00';
-            $('stat-speed').innerHTML = '0 <span class="text-[7px] font-normal text-zinc-400">km/h</span>';
-            $('dash-speed').innerHTML = '0 <span class="text-[8px] font-normal text-zinc-400">km/h</span>';
+            $('stat-speed').innerText = '0';
             $('stat-topspeed').innerHTML = '0 <span class="text-[7px] font-normal text-zinc-400">km/h</span>';
             $('stat-distance').innerHTML = '0.0 <span class="text-[7px] font-normal text-zinc-400">km</span>';
-            $('hud-current-speed').innerText = '0';
-            $('hud-gforce').innerText = '1.0';
         }
 
         function onPosition(position) {
@@ -606,15 +585,11 @@
             const currentLoc = [latitude, longitude];
             const currentSpeedKmH = speed && speed > 0 ? Math.round(speed * 3.6) : 0;
 
-            $('hud-current-speed').innerText = currentSpeedKmH;
-            $('stat-speed').innerHTML = `${currentSpeedKmH} <span class="text-[7px] font-normal text-zinc-400">km/h</span>`;
-            $('dash-speed').innerHTML = `${currentSpeedKmH} <span class="text-[8px] font-normal text-zinc-400">km/h</span>`;
+            $('stat-speed').innerText = currentSpeedKmH;
             if (currentSpeedKmH > topSpeed) {
                 topSpeed = currentSpeedKmH;
                 $('stat-topspeed').innerHTML = `${topSpeed} <span class="text-[7px] font-normal text-zinc-400">km/h</span>`;
             }
-            const simulatedGForce = 1.0 + (currentSpeedKmH / 160);
-            $('hud-gforce').innerText = simulatedGForce.toFixed(1);
 
             if (coordinates.length > 0) {
                 const lastLoc = coordinates[coordinates.length - 1];
