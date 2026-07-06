@@ -1,0 +1,21 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand: #CCFF00;
+  --color-darkBg: #121212;
+  --color-cardBg: #1E1E1E;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+body { overscroll-behavior-y: contain; }
+
+.leaflet-control-attribution { display: none !important; }
+.leaflet-vignette { box-shadow: inset 0 0 60px rgba(0,0,0,0.4); pointer-events: none; }
+.fade-transition { transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+
+@media (min-width: 640px) {
+  body { background-color: #050505; background-image: radial-gradient(circle at center, #1a1a1a 0%, #000 100%); }
+}
+
+#toast.show { opacity: 1; }

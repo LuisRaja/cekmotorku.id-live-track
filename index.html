@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>cekMotormu.id - Live Tracking & Speedometer</title>
+
+    <link rel="stylesheet" href="style.css">
+
+    <!-- Leaflet.js -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Socket.io Client -->
+    <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
+
+    <script src="config.js"></script>
+</head>
+
+<body class="bg-black h-screen w-full flex items-center justify-center overflow-hidden font-sans">
+
+    <!-- WRAPPER APLIKASI -->
+    <div id="mobile-app"
+        class="w-full h-full sm:w-[400px] sm:h-[850px] sm:max-h-[95vh] sm:border-[8px] sm:border-zinc-800 sm:rounded-[40px] bg-darkBg text-white flex flex-col relative overflow-hidden shadow-2xl sm:ring-1 sm:ring-zinc-700">
+
+        <!-- HEADER -->
+        <header
+            class="bg-[#121212] px-4 pt-5 pb-3 flex items-center justify-between border-b border-zinc-800 z-50 flex-none relative">
+            <div class="flex items-center gap-1.5">
+                <i data-lucide="settings" class="w-4 h-4 text-brand"></i>
+                <h1 class="text-[1.1rem] font-bold tracking-tight text-white">cekMotor<span
+                        class="text-brand">mu.id</span></h1>
+            </div>
+
+            <div class="bg-zinc-900 p-1 rounded-full flex gap-1 border border-zinc-800 shadow-inner">
+                <button id="btn-mode-speed" onclick="switchMode('speed')"
+                    class="px-3 py-1 rounded-full text-[10px] font-black tracking-wider transition-all duration-300 bg-brand text-black shadow">
+                    SPEED
+                </button>
+                <button id="btn-mode-touring" onclick="switchMode('touring')"
+                    class="px-3 py-1 rounded-full text-[10px] font-black tracking-wider transition-all duration-300 text-zinc-400">
+                    TOURING
+                </button>
+            </div>
+        </header>
+
+        <!-- KONTEN UTAMA -->
+        <main class="flex-1 relative w-full bg-zinc-950 flex flex-col overflow-hidden">
+
+            <div id="map-container" class="absolute inset-0 z-10 fade-transition">
+                <div id="map" class="w-full h-full"></div>
+                <div class="absolute inset-0 leaflet-vignette z-[400]"></div>
+                <img id="custom-bg"
+                    class="absolute inset-0 w-full h-full object-cover hidden z-[401] opacity-50 pointer-events-none"
+                    alt="BG">
+                <canvas id="route-canvas"
+                    class="absolute inset-0 w-full h-full hidden z-[402] pointer-events-none"></canvas>
+            </div>
+
+            <!-- MODAL INPUT -->
+            <div id="touring-inputs"
+                class="absolute top-4 left-4 right-4 z-40 bg-black/85 backdrop-blur-md p-4 rounded-2xl border border-zinc-800 flex flex-col gap-3 fade-transition hidden">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-[10px] text-zinc-400 block mb-1 font-bold uppercase tracking-wider">Nama
+                            Rute</label>
+                        <input type="text" id="in-track" placeholder="cth: Sunset Road - Dalung"
+                            class="w-full bg-zinc-900/90 border border-zinc-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-brand transition">
+                    </div>
+                    <div>
+                        <label
+                            class="text-[10px] text-zinc-400 block mb-1 font-bold uppercase tracking-wider">Motor</label>
+                        <input type="text" id="in-motor" placeholder="cth: Yamaha TMAX"
+                            class="w-full bg-zinc-900/90 border border-zinc-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-brand transition">
+                    </div>
+                </div>
+                <div class="flex gap-2">
+                    <label
+                        class="flex-1 bg-zinc-900/50 border border-dashed border-zinc-700 hover:border-brand rounded-xl p-2 text-center text-xs flex items-center justify-center gap-2 cursor-pointer transition">
+                        <i data-lucide="image" class="w-4 h-4 text-brand"></i>
+                        <span id="bg-status" class="font-semibold text-zinc-300">Ganti BG Galeri</span>
+                        <input type="file" id="file-bg" accept="image/*" class="hidden">
+                    </label>
+                </div>
+                <div class="flex gap-2">
+                    <div class="flex-1">
+                        <label class="text-[10px] text-zinc-400 block mb-1 font-bold uppercase tracking-wider">KM Awal
+                            (Odometer)</label>
+                        <input type="number" id="in-odometer" placeholder="12500"
+                            class="w-full bg-zinc-900/90 border border-zinc-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-brand transition">
+                    </div>
+                </div>
+                <div>
+                    <label class="text-[10px] text-zinc-400 block mb-1 font-bold uppercase tracking-wider">Catatan
+                        Rute</label>
+                    <textarea id="in-notes" rows="2" placeholder="cth: Jalanan macet di Denpasar..."
+                        class="w-full bg-zinc-900/90 border border-zinc-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-brand transition resize-none"></textarea>
+                </div>
+            </div>
+
+            <!-- SPEED HUD -->
+            <div id="speed-hud"
+                class="absolute inset-0 z-30 flex flex-col justify-center items-center p-6 bg-gradient-to-b from-black/50 via-transparent to-black/90 pointer-events-none fade-transition">
+                <div class="text-center mt-[-60px]">
+                    <div id="hud-current-speed"
+                        class="text-[clamp(4rem,20vw,9rem)] font-black text-brand tracking-tighter leading-none transition-all duration-100 drop-shadow-[0_0_25px_rgba(204,255,0,0.2)]">
+                        0</div>
+                    <div class="text-[10px] font-black tracking-[0.3em] text-zinc-400 uppercase mt-2">KM/JAM</div>
+                </div>
+
+                <div
+                    class="w-full grid grid-cols-2 gap-4 mt-8 pointer-events-auto bg-zinc-900/80 backdrop-blur-md p-4 rounded-2xl border border-zinc-800/80 shadow-2xl max-w-xs">
+                    <div class="text-center border-r border-zinc-800">
+                        <span class="text-[9px] text-zinc-400 block uppercase font-bold tracking-wider">Top Speed</span>
+                        <span id="hud-top-speed" class="text-xl font-black text-white">0 <span
+                                class="text-[10px] font-normal text-zinc-400">km/h</span></span>
+                    </div>
+                    <div class="text-center">
+                        <span class="text-[9px] text-zinc-400 block uppercase font-bold tracking-wider">G-Force
+                            (Est)</span>
+                        <span id="hud-gforce" class="text-xl font-black text-brand">1.0 <span
+                                class="text-[10px] font-normal text-zinc-400">G</span></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- DASHBOARD STATS -->
+            <div
+                class="absolute bottom-6 left-4 right-4 z-40 bg-zinc-900/95 backdrop-blur-xl rounded-2xl p-4 border border-zinc-800/80 shadow-[0_10px_30px_rgba(0,0,0,0.5)] flex flex-col gap-3">
+                <div class="flex justify-between items-center border-b border-zinc-800/80 pb-2">
+                    <div id="lbl-track"
+                        class="text-[10px] font-black tracking-widest uppercase text-zinc-300 truncate w-32">RUTE AKTIF
+                    </div>
+                    <div id="lbl-motor"
+                        class="text-[10px] px-2 py-0.5 rounded bg-brand/10 text-brand font-black border border-brand/20 tracking-wide uppercase truncate max-w-[100px]">
+                        -</div>
+                </div>
+                <div class="grid grid-cols-3 gap-2 text-center pt-1">
+                    <div>
+                        <div class="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">Waktu</div>
+                        <div id="stat-time" class="text-lg font-black text-white tracking-tight mt-0.5">00:00</div>
+                    </div>
+                    <div class="border-x border-zinc-800">
+                        <div class="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">Top Speed</div>
+                        <div id="stat-topspeed" class="text-lg font-black text-brand tracking-tight mt-0.5">0 <span
+                                class="text-[9px] font-normal text-white">km/h</span></div>
+                    </div>
+                    <div>
+                        <div class="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">Jarak</div>
+                        <div id="stat-distance" class="text-lg font-black text-white tracking-tight mt-0.5">0.0 <span
+                                class="text-[9px] font-normal text-zinc-400">km</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TOMBOL MAP -->
+            <div class="absolute right-4 top-1/2 -translate-y-1/2 z-40 flex flex-col gap-3 pointer-events-auto">
+                <button onclick="recenterMap()"
+                    class="w-10 h-10 bg-zinc-900/90 backdrop-blur rounded-full border border-zinc-800 flex items-center justify-center text-white active:scale-90 transition shadow-lg">
+                    <i data-lucide="crosshair" class="w-4 h-4"></i>
+                </button>
+                <button onclick="toggle3D()" id="btn-3d"
+                    class="w-10 h-10 bg-zinc-900/90 backdrop-blur rounded-full border border-zinc-800 flex items-center justify-center text-[10px] font-black text-white active:scale-90 transition shadow-lg">
+                    3D
+                </button>
+            </div>
+        </main>
+
+        <!-- RESULT PANEL -->
+        <div id="result-panel"
+            class="absolute inset-0 z-50 bg-black/80 backdrop-blur-lg hidden items-end justify-center">
+            <div
+                class="w-full bg-[#121212] rounded-t-3xl p-6 pb-10 max-h-[70vh] overflow-y-auto border-t border-zinc-800">
+                <div class="flex justify-center mb-4">
+                    <div class="w-10 h-1 bg-zinc-700 rounded-full"></div>
+                </div>
+                <h2 class="text-xl font-bold mb-1">Tour Complete!</h2>
+                <div class="text-zinc-400 text-sm mb-4">Rute telah direkam</div>
+                <div class="grid grid-cols-2 gap-3 mb-4">
+                    <div class="bg-zinc-900 rounded-xl p-3 text-center">
+                        <div class="text-[10px] text-zinc-500 uppercase tracking-wider">Jarak</div>
+                        <div class="text-lg font-bold text-blue-400" id="r-dist">0</div>
+                    </div>
+                    <div class="bg-zinc-900 rounded-xl p-3 text-center">
+                        <div class="text-[10px] text-zinc-500 uppercase tracking-wider">Durasi</div>
+                        <div class="text-lg font-bold text-white" id="r-duration">00:00:00</div>
+                    </div>
+                    <div class="bg-zinc-900 rounded-xl p-3 text-center">
+                        <div class="text-[10px] text-zinc-500 uppercase tracking-wider">Rata-rata</div>
+                        <div class="text-lg font-bold text-brand" id="r-avg">0</div>
+                    </div>
+                    <div class="bg-zinc-900 rounded-xl p-3 text-center">
+                        <div class="text-[10px] text-zinc-500 uppercase tracking-wider">Maks</div>
+                        <div class="text-lg font-bold text-orange-400" id="r-max">0</div>
+                    </div>
+                    <div class="bg-zinc-900 rounded-xl p-3 text-center">
+                        <div class="text-[10px] text-zinc-500 uppercase tracking-wider">KM Awal</div>
+                        <div class="text-lg font-bold text-white" id="r-odometer">-</div>
+                    </div>
+                    <div class="bg-zinc-900 rounded-xl p-3 text-center">
+                        <div class="text-[10px] text-zinc-500 uppercase tracking-wider">Top Speed</div>
+                        <div class="text-lg font-bold text-green-400" id="r-topspeed">0</div>
+                    </div>
+                </div>
+                <div id="r-notes-row" class="bg-zinc-900 rounded-xl p-3 mb-4 hidden">
+                    <div class="text-[10px] text-zinc-500 uppercase tracking-wider mb-1">Catatan</div>
+                    <div class="text-sm text-zinc-300" id="r-notes">-</div>
+                </div>
+                <div class="flex gap-2">
+                    <button id="btn-share"
+                        class="flex-1 bg-brand text-black font-bold py-3 rounded-xl text-sm active:scale-95 transition">Share</button>
+                    <button id="btn-save"
+                        class="flex-1 bg-zinc-800 text-white font-bold py-3 rounded-xl text-sm active:scale-95 transition">Save</button>
+                    <button id="btn-close-result"
+                        class="flex-1 bg-zinc-900 text-zinc-400 font-bold py-3 rounded-xl text-sm active:scale-95 transition">Tutup</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- TOAST -->
+        <div id="toast"
+            class="fixed bottom-28 left-1/2 -translate-x-1/2 z-[60] bg-black/90 backdrop-blur-md px-5 py-2.5 rounded-xl text-sm font-semibold text-white opacity-0 transition-all duration-300 pointer-events-none whitespace-nowrap shadow-lg border border-zinc-700/50">
+            Toast</div>
+
+        <!-- BOTTOM NAV -->
+        <nav
+            class="bg-[#121212] px-2 pb-5 pt-3 flex justify-between items-center border-t border-zinc-900 z-50 flex-none relative w-full">
+            <div class="flex flex-col items-center opacity-40 cursor-pointer w-[20%]">
+                <i data-lucide="search" class="w-5 h-5 text-white"></i>
+                <span class="text-[9px] font-bold mt-1">Cari</span>
+            </div>
+            <div class="flex flex-col items-center opacity-40 cursor-pointer w-[20%]">
+                <i data-lucide="heart" class="w-5 h-5 text-white"></i>
+                <span class="text-[9px] font-bold mt-1">Favorit</span>
+            </div>
+
+            <div class="w-[20%] flex justify-center">
+                <button id="btn-record" onclick="toggleTracking()"
+                    class="absolute -top-7 w-16 h-16 bg-brand rounded-full border-[6px] border-[#121212] flex items-center justify-center shadow-[0_0_20px_rgba(204,255,0,0.15)] transition-all duration-300 active:scale-95">
+                    <i id="icon-play" data-lucide="play" class="w-7 h-7 text-black fill-black ml-1"></i>
+                    <i id="icon-pause" data-lucide="pause" class="w-7 h-7 text-black fill-black ml-1 hidden"></i>
+                </button>
+            </div>
+
+            <div class="flex flex-col items-center opacity-40 cursor-pointer w-[20%]">
+                <i data-lucide="message-square" class="w-5 h-5 text-white"></i>
+                <span class="text-[9px] font-bold mt-1">Chat</span>
+            </div>
+            <div class="flex flex-col items-center opacity-40 cursor-pointer w-[20%]">
+                <i data-lucide="user" class="w-5 h-5 text-white"></i>
+                <span class="text-[9px] font-bold mt-1">Profil</span>
+            </div>
+        </nav>
+    </div>
+
+    <script>
+        // === STATE ===
+        let currentMode = 'speed';
+        let isTracking = false;
+        let isFinished = false;
+        let is3dMode = false;
+        let map, routeLine, watchId = null;
+        let coordinates = [];
+        let wakeLock = null;
+        let startTime = null;
+        let timerInterval = null;
+        let totalDistance = 0;
+        let topSpeed = 0;
+        let speeds = [];
+        let currentTrackId = null;
+        let socket = null;
+
+        const canvas = document.getElementById('route-canvas');
+        const ctx = canvas.getContext('2d');
+        const customBg = document.getElementById('custom-bg');
+
+        // === BACKEND ===
+        async function connectBackend() {
+            try {
+                socket = io(WS_URL);
+                socket.on('connect', () => console.log('[WS] Connected'));
+                socket.on('track:error', (err) => showToast('Server error: ' + err.message));
+            } catch (e) {
+                console.warn('[WS] Backend offline mode');
+            }
+        }
+
+        async function createTrack() {
+            if (currentTrackId) return;
+            try {
+                const res = await fetch(API_BASE + '/tracks', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: document.getElementById('in-track').value || 'Untitled',
+                        motor: document.getElementById('in-motor').value || '',
+                    }),
+                });
+                const track = await res.json();
+                currentTrackId = track.id;
+                if (socket?.connected) socket.emit('track:join', currentTrackId);
+            } catch (e) {
+                currentTrackId = 'local_' + Date.now();
+            }
+        }
+
+        function sendPoint(lat, lng, speedKmh) {
+            if (currentTrackId && socket?.connected) {
+                socket.emit('track:point', { trackId: currentTrackId, lat, lng, speed: speedKmh });
+            }
+        }
+
+        function sendStatus(status) {
+            if (currentTrackId && socket?.connected) {
+                socket.emit('track:status', { trackId: currentTrackId, status });
+            }
+        }
+
+        // === HELPERS ===
+        function $(id) { return document.getElementById(id); }
+
+        function formatTime(sec) {
+            const h = Math.floor(sec / 3600);
+            const m = Math.floor((sec % 3600) / 60);
+            const s = Math.floor(sec % 60);
+            return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+        }
+
+        function showToast(msg, duration) {
+            const el = $('toast');
+            el.textContent = msg;
+            el.classList.add('opacity-100');
+            el.classList.remove('opacity-0');
+            clearTimeout(el._t);
+            el._t = setTimeout(() => {
+                el.classList.remove('opacity-100');
+                el.classList.add('opacity-0');
+            }, duration || 2000);
+        }
+
+        // === INIT ===
+        window.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            initMap();
+            setupInputListeners();
+            switchMode('speed');
+            resizeCanvas();
+            connectBackend();
+        });
+
+        function initMap() {
+            map = L.map('map', { zoomControl: false }).setView([-8.6413, 115.1683], 14);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                maxZoom: 20
+            }).addTo(map);
+            routeLine = L.polyline([], {
+                color: '#CCFF00',
+                weight: 5,
+                opacity: 0.9,
+                lineJoin: 'round',
+                lineCap: 'round'
+            }).addTo(map);
+
+            map.on('move', () => {
+                if (!customBg.classList.contains('hidden')) drawCanvasRoute();
+            });
+        }
+
+        // === WAKE LOCK ===
+        async function requestWakeLock() {
+            try {
+                if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen');
+            } catch (err) { }
+        }
+
+        function releaseWakeLock() {
+            if (wakeLock !== null) { wakeLock.release(); wakeLock = null; }
+        }
+
+        // === MODE ===
+        function switchMode(mode) {
+            currentMode = mode;
+            const btnSpeed = $('btn-mode-speed');
+            const btnTouring = $('btn-mode-touring');
+            const speedHud = $('speed-hud');
+            const touringInputs = $('touring-inputs');
+            const mapContainer = $('map-container');
+
+            if (mode === 'speed') {
+                btnSpeed.className = "px-3 py-1 rounded-full text-[10px] font-black tracking-wider transition-all duration-300 bg-brand text-black shadow";
+                btnTouring.className = "px-3 py-1 rounded-full text-[10px] font-black tracking-wider transition-all duration-300 text-zinc-400";
+                speedHud.classList.remove('hidden');
+                touringInputs.classList.add('hidden');
+                mapContainer.classList.remove('opacity-60');
+            } else {
+                btnTouring.className = "px-3 py-1 rounded-full text-[10px] font-black tracking-wider transition-all duration-300 bg-brand text-black shadow";
+                btnSpeed.className = "px-3 py-1 rounded-full text-[10px] font-black tracking-wider transition-all duration-300 text-zinc-400";
+                touringInputs.classList.remove('hidden');
+                speedHud.classList.add('hidden');
+                mapContainer.classList.remove('opacity-60');
+                setTimeout(() => map.invalidateSize(), 200);
+            }
+        }
+
+        // === INPUT LISTENERS ===
+        function setupInputListeners() {
+            $('in-track').addEventListener('input', (e) => {
+                $('lbl-track').innerText = e.target.value.toUpperCase() || "RUTE AKTIF";
+            });
+            $('in-motor').addEventListener('input', (e) => {
+                $('lbl-motor').innerText = e.target.value || "-";
+            });
+            $('file-bg').addEventListener('change', function (e) {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function (event) {
+                        customBg.src = event.target.result;
+                        customBg.classList.remove('hidden');
+                        $('map').style.opacity = '0.05';
+                        canvas.classList.remove('hidden');
+                        $('bg-status').innerText = "BG Aktif";
+                        resizeCanvas();
+                        drawCanvasRoute();
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+        }
+
+        // === TRACKING ===
+        function toggleTracking() {
+            if (isFinished) {
+                resetForNewTrack();
+            }
+
+            if (!isTracking) {
+                if (!("geolocation" in navigator)) return alert("GPS tidak didukung.");
+                startTracking();
+            } else {
+                stopTracking();
+            }
+        }
+
+        function startTracking() {
+            isTracking = true;
+            createTrack();
+
+            // Visual feedback: red pulsing button
+            const btn = $('btn-record');
+            btn.classList.remove('bg-brand', 'shadow-[0_0_20px_rgba(204,255,0,0.15)]');
+            btn.classList.add('bg-zinc-800', 'shadow-[0_0_20px_rgba(239,68,68,0.3)]', 'animate-pulse', 'border-red-500');
+            $('icon-play').classList.add('hidden');
+            $('icon-pause').classList.remove('hidden');
+
+            startTime = Date.now();
+            timerInterval = setInterval(updateTimer, 1000);
+            requestWakeLock();
+            sendStatus('tracking');
+
+            watchId = navigator.geolocation.watchPosition(
+                onPosition,
+                (err) => console.warn("Mencari Sinyal GPS..."),
+                { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+            );
+            showToast('Tracking started');
+        }
+
+        function stopTracking() {
+            isTracking = false;
+            isFinished = true;
+            clearInterval(timerInterval);
+            if (watchId) navigator.geolocation.clearWatch(watchId);
+            releaseWakeLock();
+            sendStatus('finished');
+
+            // Restore button to original state
+            const btn = $('btn-record');
+            btn.classList.remove('bg-zinc-800', 'shadow-[0_0_20px_rgba(239,68,68,0.3)]', 'animate-pulse', 'border-red-500');
+            btn.classList.add('bg-brand', 'shadow-[0_0_20px_rgba(204,255,0,0.15)]');
+            $('icon-play').classList.remove('hidden');
+            $('icon-pause').classList.add('hidden');
+
+            showResult();
+            showToast('Tour finished!');
+        }
+
+        function resetForNewTrack() {
+            isFinished = false;
+            isTracking = false;
+            coordinates = [];
+            speeds = [];
+            totalDistance = 0;
+            topSpeed = 0;
+            currentTrackId = null;
+            routeLine.setLatLngs([]);
+            $('stat-time').innerText = '00:00';
+            $('stat-topspeed').innerHTML = '0 <span class="text-[9px] font-normal text-white">km/h</span>';
+            $('stat-distance').innerHTML = '0.0 <span class="text-[9px] font-normal text-zinc-400">km</span>';
+            $('hud-current-speed').innerText = '0';
+            $('hud-top-speed').innerHTML = '0 <span class="text-[10px] font-normal text-zinc-400">km/h</span>';
+            $('hud-gforce').innerHTML = '1.0 <span class="text-[10px] font-normal text-zinc-400">G</span>';
+        }
+
+        function onPosition(position) {
+            const { latitude, longitude, speed } = position.coords;
+            const currentLoc = [latitude, longitude];
+            const currentSpeedKmH = speed && speed > 0 ? Math.round(speed * 3.6) : 0;
+
+            // Update HUD
+            $('hud-current-speed').innerText = currentSpeedKmH;
+            if (currentSpeedKmH > topSpeed) {
+                topSpeed = currentSpeedKmH;
+                $('stat-topspeed').innerHTML = `${topSpeed} <span class="text-[9px] font-normal text-white">km/h</span>`;
+                $('hud-top-speed').innerHTML = `${topSpeed} <span class="text-[10px] font-normal text-zinc-400">km/h</span>`;
+            }
+            const simulatedGForce = 1.0 + (currentSpeedKmH / 160);
+            $('hud-gforce').innerHTML = `${simulatedGForce.toFixed(1)} <span class="text-[10px] font-normal text-zinc-400">G</span>`;
+
+            // Distance
+            if (coordinates.length > 0) {
+                const lastLoc = coordinates[coordinates.length - 1];
+                const stepDistance = calculateHaversine(lastLoc[0], lastLoc[1], latitude, longitude);
+                if (stepDistance > 0.003) {
+                    totalDistance += stepDistance;
+                    $('stat-distance').innerHTML = `${totalDistance.toFixed(2)} <span class="text-[9px] font-normal text-zinc-400">km</span>`;
+                }
+            }
+
+            coordinates.push(currentLoc);
+            speeds.push(currentSpeedKmH);
+            routeLine.setLatLngs(coordinates);
+            map.setView(currentLoc, is3dMode ? 18 : 15);
+
+            // Send to server
+            sendPoint(latitude, longitude, currentSpeedKmH);
+
+            if (!customBg.classList.contains('hidden')) drawCanvasRoute();
+        }
+
+        function updateTimer() {
+            if (!startTime) return;
+            const elapsed = Date.now() - startTime;
+            const totalSecs = Math.floor(elapsed / 1000);
+            const mins = Math.floor(totalSecs / 60).toString().padStart(2, '0');
+            const secs = (totalSecs % 60).toString().padStart(2, '0');
+            $('stat-time').innerText = `${mins}:${secs}`;
+        }
+
+        function calculateHaversine(lat1, lon1, lat2, lon2) {
+            const R = 6371;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat / 2) ** 2 +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon / 2) ** 2;
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        }
+
+        // === CANVAS ===
+        function resizeCanvas() {
+            const parent = canvas.parentElement;
+            canvas.width = parent.clientWidth;
+            canvas.height = parent.clientHeight;
+            if (!customBg.classList.contains('hidden')) drawCanvasRoute();
+        }
+        window.addEventListener('resize', resizeCanvas);
+
+        function drawCanvasRoute() {
+            if (coordinates.length < 2) return;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.beginPath();
+            ctx.strokeStyle = '#CCFF00';
+            ctx.lineWidth = 5;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            coordinates.forEach((coord, i) => {
+                const p = map.latLngToContainerPoint(new L.LatLng(coord[0], coord[1]));
+                if (i === 0) ctx.moveTo(p.x, p.y);
+                else ctx.lineTo(p.x, p.y);
+            });
+            ctx.stroke();
+        }
+
+        // NOTE: map.on('move') is registered inside initMap()
+
+        // === MAP CONTROLS ===
+        function recenterMap() {
+            if (coordinates.length > 0) map.setView(coordinates[coordinates.length - 1], is3dMode ? 18 : 15);
+            else navigator.geolocation.getCurrentPosition(p => map.setView([p.coords.latitude, p.coords.longitude], 15));
+        }
+
+        function toggle3D() {
+            is3dMode = !is3dMode;
+            const btn = $('btn-3d');
+            if (is3dMode) {
+                btn.classList.add('bg-brand', 'text-black');
+                map.setZoom(18);
+            } else {
+                btn.classList.remove('bg-brand', 'text-black');
+                map.setZoom(15);
+            }
+        }
+
+        // === RESULT PANEL ===
+        function getElapsedSeconds() {
+            if (!startTime) return 0;
+            return Math.floor((Date.now() - startTime) / 1000);
+        }
+
+        function showResult() {
+            const avgSpeed = speeds.length > 0
+                ? speeds.reduce((a, b) => a + b, 0) / speeds.length
+                : 0;
+            const elapsed = getElapsedSeconds();
+            const odometer = $('in-odometer').value;
+            const notes = $('in-notes').value;
+
+            $('r-dist').textContent = totalDistance.toFixed(2) + ' km';
+            $('r-duration').textContent = formatTime(elapsed);
+            $('r-avg').textContent = avgSpeed.toFixed(1);
+            $('r-max').textContent = topSpeed;
+            $('r-topspeed').textContent = topSpeed + ' km/h';
+            $('r-odometer').textContent = odometer ? odometer + ' km' : '-';
+
+            if (notes) {
+                $('r-notes-row').classList.remove('hidden');
+                $('r-notes').textContent = notes;
+            } else {
+                $('r-notes-row').classList.add('hidden');
+            }
+
+            $('result-panel').classList.remove('hidden');
+            $('result-panel').classList.add('flex');
+        }
+
+        // === SHARE AS IMAGE ===
+        async function generateShareImage() {
+            const W = 1080, H = 1350;
+            const imgCanvas = document.createElement('canvas');
+            imgCanvas.width = W;
+            imgCanvas.height = H;
+            const c = imgCanvas.getContext('2d');
+
+            // Background
+            if (customBg.src && !customBg.classList.contains('hidden')) {
+                c.drawImage(customBg, 0, 0, W, H);
+            } else {
+                const grad = c.createLinearGradient(0, 0, 0, H);
+                grad.addColorStop(0, '#1a1a2e');
+                grad.addColorStop(1, '#0a0a0a');
+                c.fillStyle = grad;
+                c.fillRect(0, 0, W, H);
+            }
+            c.fillStyle = 'rgba(0,0,0,0.35)';
+            c.fillRect(0, 0, W, H);
+
+            // Route line
+            if (coordinates.length > 1) {
+                const lats = coordinates.map(p => p[0]);
+                const lngs = coordinates.map(p => p[1]);
+                const minLat = Math.min(...lats), maxLat = Math.max(...lats);
+                const minLng = Math.min(...lngs), maxLng = Math.max(...lngs);
+                const pad = 0.1;
+                const rangeLat = (maxLat - minLat) || 0.001;
+                const rangeLng = (maxLng - minLng) || 0.001;
+                const margin = 80;
+
+                c.strokeStyle = '#CCFF00';
+                c.lineWidth = 10;
+                c.lineCap = 'round';
+                c.lineJoin = 'round';
+                c.shadowColor = '#CCFF00';
+                c.shadowBlur = 15;
+                c.beginPath();
+
+                coordinates.forEach((coord, i) => {
+                    const x = margin + ((coord[1] - minLng) / (rangeLng + pad)) * (W - 2 * margin);
+                    const y = H - margin - ((coord[0] - minLat) / (rangeLat + pad)) * (H - 2 * margin);
+                    if (i === 0) c.moveTo(x, y);
+                    else c.lineTo(x, y);
+                });
+                c.stroke();
+                c.shadowBlur = 0;
+            }
+
+            // Stats overlay
+            const boxH = 340;
+            c.fillStyle = 'rgba(0,0,0,0.8)';
+            c.fillRect(0, H - boxH, W, boxH);
+
+            c.fillStyle = '#CCFF00';
+            c.font = 'bold 36px sans-serif';
+            c.textAlign = 'center';
+            c.fillText('cekMotormu.id', W / 2, H - boxH + 55);
+
+            c.fillStyle = '#fff';
+            c.font = 'bold 28px sans-serif';
+            const trackName = $('in-track').value || 'Untitled';
+            const motorName = $('in-motor').value || 'Motor';
+            c.fillText(trackName + ' | ' + motorName, W / 2, H - boxH + 100);
+
+            // Stats in 3 columns
+            const avgSpeed = speeds.length > 0
+                ? (speeds.reduce((a, b) => a + b, 0) / speeds.length).toFixed(1)
+                : '0';
+            const elapsed = formatTime(getElapsedSeconds());
+
+            c.font = 'bold 44px sans-serif';
+            c.textAlign = 'center';
+            const colW = W / 3;
+
+            // Col 1: Distance
+            c.fillStyle = '#60a5fa';
+            c.fillText(totalDistance.toFixed(1), colW * 0.5, H - boxH + 165);
+            c.fillStyle = 'rgba(255,255,255,0.6)';
+            c.font = '18px sans-serif';
+            c.fillText('Jarak (km)', colW * 0.5, H - boxH + 195);
+
+            // Col 2: Duration
+            c.fillStyle = '#fff';
+            c.font = 'bold 44px sans-serif';
+            c.fillText(elapsed, colW * 1.5, H - boxH + 165);
+            c.fillStyle = 'rgba(255,255,255,0.6)';
+            c.font = '18px sans-serif';
+            c.fillText('Durasi', colW * 1.5, H - boxH + 195);
+
+            // Col 3: Max Speed
+            c.fillStyle = '#fb923c';
+            c.font = 'bold 44px sans-serif';
+            c.fillText(String(topSpeed), colW * 2.5, H - boxH + 165);
+            c.fillStyle = 'rgba(255,255,255,0.6)';
+            c.font = '18px sans-serif';
+            c.fillText('Top Speed', colW * 2.5, H - boxH + 195);
+
+            // Avg speed & odometer row
+            c.fillStyle = 'rgba(255,255,255,0.7)';
+            c.font = '22px sans-serif';
+            c.textAlign = 'center';
+            c.fillText(`Rata-rata: ${avgSpeed} km/h`, W / 2, H - boxH + 260);
+
+            const odometer = $('in-odometer').value;
+            if (odometer) {
+                c.fillText(`KM Awal: ${odometer} km`, W / 2, H - boxH + 295);
+            }
+
+            return new Promise(resolve => {
+                imgCanvas.toBlob(blob => resolve(blob), 'image/png');
+            });
+        }
+
+        // === EVENT LISTENERS ===
+        $('btn-share').addEventListener('click', async () => {
+            try {
+                const blob = await generateShareImage();
+                const file = new File([blob], 'cekmotormu-route.png', { type: 'image/png' });
+                if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    await navigator.share({
+                        title: 'cekMotormu.id - My Route',
+                        text: `${$('in-track').value || 'Rute'} - cekMotormu.id`,
+                        files: [file],
+                    });
+                } else {
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'cekmotormu-route.png';
+                    a.click();
+                    URL.revokeObjectURL(url);
+                    showToast('Gambar siap di-download');
+                }
+            } catch (e) {
+                if (e.name !== 'AbortError') showToast('Gagal share: ' + e.message);
+            }
+        });
+
+        $('btn-save').addEventListener('click', () => {
+            const data = {
+                date: new Date().toISOString(),
+                coordinates,
+                speeds,
+                totalDistance,
+                topSpeed,
+                elapsed: getElapsedSeconds(),
+                trackName: $('in-track').value || 'Untitled',
+                motor: $('in-motor').value || '',
+                odometer: $('in-odometer').value || '',
+                notes: $('in-notes').value || '',
+            };
+            localStorage.setItem('cekmotor_track_' + Date.now(), JSON.stringify(data));
+
+            if (currentTrackId) {
+                fetch(API_BASE + '/tracks/' + currentTrackId, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: $('in-track').value || 'Untitled',
+                        motor: $('in-motor').value || '',
+                    }),
+                }).catch(() => { });
+            }
+            showToast('Rute tersimpan!');
+        });
+
+        $('btn-close-result').addEventListener('click', () => {
+            $('result-panel').classList.add('hidden');
+            $('result-panel').classList.remove('flex');
+        });
+
+        window.addEventListener('beforeunload', () => {
+            if (watchId) navigator.geolocation.clearWatch(watchId);
+        });
+    </script>
+</body>
+
+</html>
