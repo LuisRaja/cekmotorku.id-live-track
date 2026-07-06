@@ -246,7 +246,7 @@
         let isPaused = false;
         let isFinished = false;
         let is3dMode = false;
-        let map, routeLine, watchId = null;
+        let map, routeLine, currentMarker = null, watchId = null;
         let coordinates = [];
         let wakeLock = null;
         let startTime = null;
@@ -331,7 +331,37 @@
             switchMode('speed');
             resizeCanvas();
             connectBackend();
+            showCurrentLocation();
         });
+
+        function updateLocationMarker(latlng) {
+            if (currentMarker) {
+                currentMarker.setLatLng(latlng);
+            } else {
+                currentMarker = L.circleMarker(latlng, {
+                    radius: 8,
+                    color: '#CCFF00',
+                    fillColor: '#fff',
+                    fillOpacity: 1,
+                    weight: 3,
+                    opacity: 0.9,
+                }).addTo(map);
+            }
+        }
+
+        function showCurrentLocation() {
+            if ("geolocation" in navigator) {
+                navigator.geolocation.getCurrentPosition(
+                    (pos) => {
+                        const loc = [pos.coords.latitude, pos.coords.longitude];
+                        updateLocationMarker(loc);
+                        map.setView(loc, 14);
+                    },
+                    () => {},
+                    { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+                );
+            }
+        }
 
         function initMap() {
             map = L.map('map', { zoomControl: false }).setView([-8.6413, 115.1683], 14);
@@ -493,6 +523,7 @@
             topSpeed = 0;
             currentTrackId = null;
             routeLine.setLatLngs([]);
+            if (currentMarker) { map.removeLayer(currentMarker); currentMarker = null; }
             $('stat-time').innerText = '00:00';
             $('stat-topspeed').innerHTML = '0 <span class="text-[9px] font-normal text-white">km/h</span>';
             $('stat-distance').innerHTML = '0.0 <span class="text-[9px] font-normal text-zinc-400">km</span>';
@@ -527,6 +558,9 @@
             coordinates.push(currentLoc);
             speeds.push(currentSpeedKmH);
             routeLine.setLatLngs(coordinates);
+
+            updateLocationMarker(currentLoc);
+
             map.setView(currentLoc, is3dMode ? 18 : 15);
 
             sendPoint(latitude, longitude, currentSpeedKmH);
