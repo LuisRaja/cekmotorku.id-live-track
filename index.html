@@ -169,132 +169,6 @@
             </div>
         </main>
 
-        <!-- SHARE PREVIEW MODAL -->
-        <div id="share-preview" class="absolute inset-0 z-50 bg-black/90 hidden flex-col overflow-y-auto">
-            <!-- Preview header -->
-            <div class="flex items-center justify-between px-4 py-3 border-b border-zinc-800 flex-none">
-                <button id="btn-close-preview" class="text-zinc-400 text-sm font-semibold">&larr; Kembali</button>
-                <span class="text-xs text-zinc-500 font-medium">Bagikan Pencapaian</span>
-                <button id="btn-download-share" class="bg-brand text-black text-xs font-bold px-4 py-2 rounded-full">Download</button>
-            </div>
-
-            <!-- Card container for html2canvas -->
-            <div id="share-card-wrapper" class="flex-1 flex items-center justify-center p-4">
-                <div id="share-card" class="relative w-full max-w-sm aspect-[9/16] bg-cover bg-center rounded-[32px] overflow-hidden shadow-2xl border border-zinc-800/80 flex flex-col justify-between text-white share-style-standard"
-                     style="background-image: linear-gradient(145deg, #1a1a2e, #0a0a0a);">
-                    
-                    <div id="share-overlay" class="absolute inset-0 bg-gradient-to-b from-black/50 via-black/20 to-black/90 z-0"></div>
-
-                    <!-- HEADER -->
-                    <div class="relative z-10 w-full flex flex-col gap-1 px-6 pt-6">
-                        <div class="flex justify-between items-center">
-                            <span class="bg-black/40 backdrop-blur-md text-[10px] font-bold tracking-wider uppercase px-3 py-1.5 rounded-full border border-white/10 flex items-center gap-1.5">
-                                <span class="w-1.5 h-1.5 rounded-full bg-brand animate-pulse"></span>
-                                Touring Mode
-                            </span>
-                            <i data-lucide="settings" class="w-5 h-5 text-brand"></i>
-                        </div>
-                        <h1 class="text-xl font-black font-display tracking-tight mt-2 uppercase" id="share-title">Rute Aktif</h1>
-                        <p class="text-[10px] text-zinc-300 font-light tracking-wide flex items-center gap-1" id="share-location">
-                            <svg class="w-3 h-3 text-brand" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z"/></svg>
-                            <span id="share-motor-label">-</span>
-                        </p>
-                    </div>
-
-                    <!-- ROUTE SVG -->
-                    <div class="relative z-10 w-full flex justify-center items-center py-2">
-                        <svg id="share-route-svg" class="w-11/12 h-40 share-route-svg" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path id="share-route-path" d="" stroke="#CCFF00" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" />
-                            <circle id="share-start-dot" cx="0" cy="0" r="4.5" fill="#FFFFFF" />
-                            <circle id="share-start-inner" cx="0" cy="0" r="2" fill="#000000" />
-                        </svg>
-                    </div>
-
-                    <!-- METRICS FOOTER -->
-                    <div class="relative z-10 w-full flex flex-col gap-3 bg-gradient-to-t from-black/95 via-black/70 to-transparent pt-8 px-6 pb-5">
-                        <!-- Row 1: Distance + Elevation -->
-                        <div class="grid grid-cols-2 gap-3">
-                            <div class="flex flex-col">
-                                <span class="text-[10px] text-zinc-400 font-medium tracking-wider uppercase">Total Distance</span>
-                                <div class="flex items-baseline gap-0.5">
-                                    <span class="text-2xl font-black font-display tracking-tight text-brand share-distance-value" id="share-dist">0.00</span>
-                                    <span class="text-xs font-semibold text-zinc-300">km</span>
-                                </div>
-                            </div>
-                            <div class="flex flex-col share-elevation-label">
-                                <span class="text-[10px] text-zinc-400 font-medium tracking-wider uppercase">Elevation Gain</span>
-                                <div class="text-sm font-bold text-zinc-100 mt-0.5" id="share-elevation">0 hm</div>
-                                <svg class="w-full h-4 mt-1 opacity-80 share-elevation-chart" viewBox="0 0 100 20" fill="none">
-                                    <path d="M0,18 Q20,15 40,8 T80,4 T100,12" stroke="#CCFF00" stroke-width="1.5" fill="none"/>
-                                </svg>
-                            </div>
-                        </div>
-
-                        <!-- Row 2: Avg Speed + Top Speed + Total Time -->
-                        <div class="grid grid-cols-3 gap-2">
-                            <div class="flex flex-col">
-                                <span class="text-[10px] text-zinc-400 font-medium tracking-wider uppercase share-avg-speed-label">Avg Speed</span>
-                                <div class="flex items-baseline gap-0.5">
-                                    <span class="text-xl font-black font-display tracking-tight" id="share-avg">0</span>
-                                    <span class="text-[9px] font-semibold text-zinc-400">km/h</span>
-                                </div>
-                            </div>
-                            <div class="flex flex-col items-center">
-                                <span class="text-[10px] text-zinc-400 font-medium tracking-wider uppercase">Top Speed</span>
-                                <span class="text-2xl font-black font-display tracking-tight text-brand share-top-speed-value" id="share-top">0</span>
-                                <span class="text-[9px] text-zinc-500">km/h</span>
-                            </div>
-                            <div class="flex flex-col items-end">
-                                <span class="text-[10px] text-zinc-400 font-medium tracking-wider uppercase">Total Time</span>
-                                <span class="text-xl font-black font-display tracking-tight" id="share-time">00:00</span>
-                                <span class="text-[9px] text-zinc-500 share-lean-angle" id="share-lean">Lean: --</span>
-                            </div>
-                        </div>
-
-                        <!-- Histogram consistency -->
-                        <div class="flex flex-col gap-1.5 share-histogram">
-                            <div class="flex justify-between items-center">
-                                <span class="text-[9px] text-zinc-400 font-semibold tracking-wider uppercase">Pace (Per KM)</span>
-                                <span class="text-[9px] text-brand font-bold share-rpm-peak">Peak: --</span>
-                            </div>
-                            <div id="share-histogram-bars" class="flex items-end justify-between gap-1 h-7">
-                                <!-- bars injected by JS -->
-                            </div>
-                        </div>
-
-                        <!-- Notes -->
-                        <div id="share-notes-row" class="hidden">
-                            <span class="text-[9px] text-zinc-500 uppercase tracking-wider">Catatan</span>
-                            <p class="text-xs text-zinc-300 mt-0.5" id="share-notes">-</p>
-                        </div>
-
-                        <!-- Footer watermark -->
-                        <div class="text-center mt-1">
-                            <span class="text-[9px] text-zinc-600 font-semibold tracking-wider">cekMotormu.id</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Style & Background controls -->
-            <div class="flex-none bg-[#121212] border-t border-zinc-800 px-4 py-4 flex flex-col gap-3">
-                <div class="flex gap-2 justify-center">
-                    <button onclick="setShareStyle('standard')" class="style-btn text-[10px] font-bold px-4 py-2 rounded-full border border-zinc-700 text-zinc-300 active:scale-95 transition" data-style="standard">Standard</button>
-                    <button onclick="setShareStyle('minimal')" class="style-btn text-[10px] font-bold px-4 py-2 rounded-full border border-zinc-700 text-zinc-300 active:scale-95 transition" data-style="minimal">Minimalist</button>
-                    <button onclick="setShareStyle('stats')" class="style-btn text-[10px] font-bold px-4 py-2 rounded-full border border-zinc-700 text-zinc-300 active:scale-95 transition" data-style="stats">Stats Focus</button>
-                </div>
-                <div class="flex gap-2 justify-center">
-                    <label class="flex items-center gap-2 bg-zinc-900 px-4 py-2 rounded-full border border-dashed border-zinc-700 text-[10px] font-semibold text-zinc-300 cursor-pointer">
-                        <i data-lucide="image" class="w-3.5 h-3.5 text-brand"></i>
-                        Ganti Background
-                        <input type="file" id="share-bg-input" accept="image/*" class="hidden">
-                    </label>
-                    <button onclick="resetShareBg()" class="text-[10px] font-semibold px-4 py-2 rounded-full bg-zinc-900 text-zinc-400 border border-zinc-800 active:scale-95 transition">Reset</button>
-                </div>
-                <button id="btn-save-local" class="w-full text-xs font-bold py-3 rounded-xl bg-zinc-800 text-white active:scale-95 transition">Simpan ke Riwayat</button>
-            </div>
-        </div>
-
         <!-- TOAST -->
         <div id="toast" class="fixed bottom-28 left-1/2 -translate-x-1/2 z-[60] bg-black/90 backdrop-blur-md px-5 py-2.5 rounded-xl text-sm font-semibold text-white opacity-0 transition-all duration-300 pointer-events-none whitespace-nowrap shadow-lg border border-zinc-700/50">Toast</div>
 
@@ -327,6 +201,119 @@
                 <span class="text-[9px] font-bold mt-1">Profil</span>
             </div>
         </nav>
+    </div>
+
+    <!-- SHARE PREVIEW MODAL (full screen, outside mobile-app) -->
+    <div id="share-preview" class="fixed inset-0 z-[100] bg-black/90 hidden flex-col">
+        <div class="flex items-center justify-between px-4 py-3 border-b border-zinc-800 flex-none bg-[#121212]">
+            <button id="btn-close-preview" class="text-zinc-400 text-sm font-semibold">&larr; Kembali</button>
+            <span class="text-xs text-zinc-500 font-medium">Bagikan Pencapaian</span>
+            <button id="btn-download-share" class="bg-brand text-black text-xs font-bold px-4 py-2 rounded-full">Download</button>
+        </div>
+
+        <div id="share-card-wrapper" class="flex-1 flex items-center justify-center p-4 overflow-y-auto">
+            <div id="share-card" class="relative w-full max-w-[360px] bg-cover bg-center rounded-[32px] overflow-hidden shadow-2xl border border-zinc-800/80 flex flex-col justify-between text-white"
+                 style="background-image: linear-gradient(145deg, #1a1a2e, #0a0a0a); min-height: 480px;">
+                
+                <div id="share-overlay" class="absolute inset-0 bg-gradient-to-b from-black/50 via-black/20 to-black/90 z-0"></div>
+
+                <div class="relative z-10 w-full flex flex-col gap-1 px-6 pt-6">
+                    <div class="flex justify-between items-center">
+                        <span class="bg-black/40 backdrop-blur-md text-[10px] font-bold tracking-wider uppercase px-3 py-1.5 rounded-full border border-white/10 flex items-center gap-1.5">
+                            <span class="w-1.5 h-1.5 rounded-full bg-brand animate-pulse"></span>
+                            Touring Mode
+                        </span>
+                        <i data-lucide="settings" class="w-5 h-5 text-brand"></i>
+                    </div>
+                    <h1 class="text-xl font-black font-display tracking-tight mt-2 uppercase" id="share-title">Rute Aktif</h1>
+                    <p class="text-[10px] text-zinc-300 font-light tracking-wide flex items-center gap-1">
+                        <svg class="w-3 h-3 text-brand" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z"/></svg>
+                        <span id="share-motor-label">-</span>
+                    </p>
+                </div>
+
+                <div class="relative z-10 w-full flex justify-center items-center py-4 flex-1">
+                    <svg id="share-route-svg" class="w-11/12 h-full max-h-[200px] share-route-svg" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path id="share-route-path" d="" stroke="#CCFF00" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" />
+                        <circle id="share-start-dot" cx="0" cy="0" r="4.5" fill="#FFFFFF" />
+                        <circle id="share-start-inner" cx="0" cy="0" r="2" fill="#000000" />
+                    </svg>
+                </div>
+
+                <div class="relative z-10 w-full flex flex-col gap-3 bg-gradient-to-t from-black/95 via-black/70 to-transparent pt-8 px-6 pb-5">
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="flex flex-col">
+                            <span class="text-[10px] text-zinc-400 font-medium tracking-wider uppercase">Total Distance</span>
+                            <div class="flex items-baseline gap-0.5">
+                                <span class="text-2xl font-black font-display tracking-tight text-brand share-distance-value" id="share-dist">0.00</span>
+                                <span class="text-xs font-semibold text-zinc-300">km</span>
+                            </div>
+                        </div>
+                        <div class="flex flex-col share-elevation-label">
+                            <span class="text-[10px] text-zinc-400 font-medium tracking-wider uppercase">Elevation Gain</span>
+                            <div class="text-sm font-bold text-zinc-100 mt-0.5" id="share-elevation">0 hm</div>
+                            <svg class="w-full h-4 mt-1 opacity-80 share-elevation-chart" viewBox="0 0 100 20" fill="none">
+                                <path d="M0,18 Q20,15 40,8 T80,4 T100,12" stroke="#CCFF00" stroke-width="1.5" fill="none"/>
+                            </svg>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-2">
+                        <div class="flex flex-col">
+                            <span class="text-[10px] text-zinc-400 font-medium tracking-wider uppercase share-avg-speed-label">Avg Speed</span>
+                            <div class="flex items-baseline gap-0.5">
+                                <span class="text-xl font-black font-display tracking-tight" id="share-avg">0</span>
+                                <span class="text-[9px] font-semibold text-zinc-400">km/h</span>
+                            </div>
+                        </div>
+                        <div class="flex flex-col items-center">
+                            <span class="text-[10px] text-zinc-400 font-medium tracking-wider uppercase">Top Speed</span>
+                            <span class="text-2xl font-black font-display tracking-tight text-brand share-top-speed-value" id="share-top">0</span>
+                            <span class="text-[9px] text-zinc-500">km/h</span>
+                        </div>
+                        <div class="flex flex-col items-end">
+                            <span class="text-[10px] text-zinc-400 font-medium tracking-wider uppercase">Total Time</span>
+                            <span class="text-xl font-black font-display tracking-tight" id="share-time">00:00</span>
+                            <span class="text-[9px] text-zinc-500 share-lean-angle" id="share-lean">Lean: --</span>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col gap-1.5 share-histogram">
+                        <div class="flex justify-between items-center">
+                            <span class="text-[9px] text-zinc-400 font-semibold tracking-wider uppercase">Pace (Per KM)</span>
+                            <span class="text-[9px] text-brand font-bold share-rpm-peak">Peak: --</span>
+                        </div>
+                        <div id="share-histogram-bars" class="flex items-end justify-between gap-1 h-7"></div>
+                    </div>
+
+                    <div id="share-notes-row" class="hidden">
+                        <span class="text-[9px] text-zinc-500 uppercase tracking-wider">Catatan</span>
+                        <p class="text-xs text-zinc-300 mt-0.5" id="share-notes">-</p>
+                    </div>
+
+                    <div class="text-center mt-1">
+                        <span class="text-[9px] text-zinc-600 font-semibold tracking-wider">cekMotormu.id</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex-none bg-[#121212] border-t border-zinc-800 px-4 py-4 flex flex-col gap-3">
+            <div class="flex gap-2 justify-center">
+                <button onclick="setShareStyle('standard')" class="style-btn text-[10px] font-bold px-4 py-2 rounded-full border border-zinc-700 text-zinc-300 active:scale-95 transition" data-style="standard">Standard</button>
+                <button onclick="setShareStyle('minimal')" class="style-btn text-[10px] font-bold px-4 py-2 rounded-full border border-zinc-700 text-zinc-300 active:scale-95 transition" data-style="minimal">Minimalist</button>
+                <button onclick="setShareStyle('stats')" class="style-btn text-[10px] font-bold px-4 py-2 rounded-full border border-zinc-700 text-zinc-300 active:scale-95 transition" data-style="stats">Stats Focus</button>
+            </div>
+            <div class="flex gap-2 justify-center">
+                <label class="flex items-center gap-2 bg-zinc-900 px-4 py-2 rounded-full border border-dashed border-zinc-700 text-[10px] font-semibold text-zinc-300 cursor-pointer">
+                    <i data-lucide="image" class="w-3.5 h-3.5 text-brand"></i>
+                    Ganti Background
+                    <input type="file" id="share-bg-input" accept="image/*" class="hidden">
+                </label>
+                <button onclick="resetShareBg()" class="text-[10px] font-semibold px-4 py-2 rounded-full bg-zinc-900 text-zinc-400 border border-zinc-800 active:scale-95 transition">Reset</button>
+            </div>
+            <button id="btn-save-local" class="w-full text-xs font-bold py-3 rounded-xl bg-zinc-800 text-white active:scale-95 transition">Simpan ke Riwayat</button>
+        </div>
     </div>
 
     <script>
@@ -868,8 +855,7 @@
 
             // Reset
             card.classList.remove('layout-standard', 'layout-minimal', 'layout-stats');
-            routeSvg.classList.remove('absolute', 'inset-0', 'opacity-15', 'h-full', 'pointer-events-none');
-            routeSvg.classList.add('w-11/12', 'h-40');
+            routeSvg.className = 'w-11/12 h-full max-h-[200px] share-route-svg';
             distVal.className = 'text-2xl font-black font-display tracking-tight text-brand share-distance-value';
             topVal.className = 'text-2xl font-black font-display tracking-tight text-brand share-top-speed-value';
             Object.values(els).forEach(el => { if (el) el.style.display = ''; });
@@ -879,7 +865,7 @@
                 ['elevationChart', 'elevationLabel', 'histogram', 'avgLabel', 'leanAngle', 'rpmPeak'].forEach(k => {
                     if (els[k]) els[k].style.display = 'none';
                 });
-                routeSvg.className = 'w-11/12 h-32 share-route-svg';
+                routeSvg.className = 'w-11/12 h-full max-h-[140px] share-route-svg';
                 distVal.className = 'text-xl font-black font-display tracking-tight text-brand share-distance-value';
                 topVal.className = 'text-xl font-black font-display tracking-tight text-brand share-top-speed-value';
             } else if (shareStyle === 'stats') {
