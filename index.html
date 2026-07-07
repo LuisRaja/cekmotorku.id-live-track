@@ -5,14 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#08080C">
+    <meta name="description" content="cekMotormu.id – Live GPS tracking & speedometer untuk rider Indonesia.">
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏍</text></svg>">
-    <title>cekMotormu.id - Live Tracking & Speedometer</title>
+    <title>cekMotormu.id – Live Tracking & Speedometer</title>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 
     <!-- Tailwind CSS (local build) -->
     <link rel="stylesheet" href="style.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;700;900&family=Inter:wght@300;400;600;700;900&display=swap" rel="stylesheet">
 
     <!-- Leaflet.js -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -21,308 +25,1210 @@
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
 
-    <!-- Socket.io Client -->
+    <!-- Socket.io -->
     <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
 
-    <!-- html2canvas for share image export -->
+    <!-- html2canvas -->
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 
     <script src="config.js"></script>
 
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        /* ══════════════════════════════════════════
+           DESIGN SYSTEM TOKENS
+        ══════════════════════════════════════════ */
+        :root {
+            --c-brand:    #BDFF00;
+            --c-brand-dim: rgba(189,255,0,0.12);
+            --c-brand-glow: rgba(189,255,0,0.35);
+            --c-danger:   #FF4757;
+            --c-danger-dim: rgba(255,71,87,0.15);
+            --c-danger-glow: rgba(255,71,87,0.4);
+            --c-bg:       #08080C;
+            --c-surface:  rgba(14,14,20,0.96);
+            --c-surface2: rgba(22,22,30,0.94);
+            --c-border:   rgba(255,255,255,0.07);
+            --c-border2:  rgba(255,255,255,0.12);
+            --c-text:     #FFFFFF;
+            --c-text-2:   rgba(255,255,255,0.50);
+            --c-text-3:   rgba(255,255,255,0.28);
+            --f-num:      'Space Grotesk', sans-serif;
+            --f-ui:       'Plus Jakarta Sans', sans-serif;
+            --blur:       blur(24px);
+            --blur-sm:    blur(12px);
+            --r-card:     20px;
+            --r-pill:     100px;
+            --shadow-card: 0 16px 48px rgba(0,0,0,0.65);
+            --shadow-glow: 0 0 32px var(--c-brand-glow);
+        }
+
+        /* ── RESET & BASE ── */
+        *, *::before, *::after {
+            margin: 0; padding: 0; box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
         html, body { height: 100%; overflow: hidden; }
-        body { overscroll-behavior-y: contain; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
-
-        .leaflet-control-attribution { display: none !important; }
-        .leaflet-vignette { box-shadow: inset 0 0 60px rgba(0,0,0,0.4); pointer-events: none; }
-
-        .fade-transition { transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
-
+        body {
+            font-family: var(--f-ui);
+            background: #000;
+            overscroll-behavior-y: contain;
+            color: var(--c-text);
+        }
         @media (min-width: 640px) {
-            body {
-                background-color: #050505;
-                background-image: radial-gradient(circle at center, #1a1a1a 0%, #000 100%);
+            body { background: #000; }
+        }
+
+        /* ── LEAFLET OVERRIDES ── */
+        .leaflet-control-attribution { display: none !important; }
+        .map-vignette {
+            pointer-events: none;
+            box-shadow: inset 0 0 80px rgba(0,0,0,0.55), inset 0 -120px 80px rgba(0,0,0,0.75);
+        }
+
+        /* ── TRANSITIONS ── */
+        .fade-t { transition: all 0.35s cubic-bezier(0.4,0,0.2,1); }
+
+        /* ══════════════════════════════════════════
+           APP SHELL
+        ══════════════════════════════════════════ */
+        #app {
+            position: relative;
+            width: 100%; height: 100%;
+            display: flex; flex-direction: column;
+            overflow: hidden;
+            background: var(--c-bg);
+        }
+        @media (min-width: 640px) {
+            body { display: flex; align-items: center; justify-content: center; background: #030305; }
+            #app {
+                width: 100%; max-width: 420px; height: 100dvh;
+                max-height: 100dvh;
+                border-radius: 0;
+                border: none;
+                box-shadow: none;
+                overflow: hidden;
             }
         }
 
-        #toast.show { opacity: 1; }
+        /* ══════════════════════════════════════════
+           HEADER
+        ══════════════════════════════════════════ */
+        #app-header {
+            flex: none;
+            background: var(--c-surface);
+            backdrop-filter: var(--blur);
+            -webkit-backdrop-filter: var(--blur);
+            border-bottom: 1px solid var(--c-border);
+            padding: 14px 16px 12px;
+            display: flex; align-items: center; justify-content: space-between;
+            z-index: 50;
+            position: relative;
+        }
+        .header-logo {
+            display: flex; align-items: center; gap: 8px;
+        }
+        .header-logo-icon {
+            width: 32px; height: 32px;
+            background: var(--c-brand-dim);
+            border: 1px solid var(--c-brand-glow);
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .header-logo-icon svg {
+            width: 16px; height: 16px;
+            stroke: var(--c-brand); fill: none;
+            stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+        }
+        .header-logo-text {
+            font-family: var(--f-ui);
+            font-size: 15px; font-weight: 800;
+            letter-spacing: -0.3px; color: var(--c-text);
+        }
+        .header-logo-text span { color: var(--c-brand); }
+
+        /* GPS status pill */
+        .gps-status {
+            display: flex; align-items: center; gap: 5px;
+            font-family: var(--f-ui);
+            font-size: 9px; font-weight: 700; letter-spacing: 0.8px;
+            color: var(--c-text-2); text-transform: uppercase;
+        }
+        .gps-dot {
+            width: 6px; height: 6px; border-radius: 50%;
+            background: var(--c-text-3);
+            transition: background 0.4s;
+        }
+        .gps-dot.active { background: var(--c-brand); box-shadow: 0 0 8px var(--c-brand); animation: gpsPulse 2s infinite; }
+        .gps-dot.recording { background: var(--c-danger); box-shadow: 0 0 8px var(--c-danger); animation: gpsPulse 1s infinite; }
+        @keyframes gpsPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+        /* Mode switcher */
+        .mode-pill {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--c-border);
+            border-radius: var(--r-pill);
+            padding: 3px; display: flex; gap: 2px;
+            position: relative;
+        }
+        .mode-pill-slider {
+            position: absolute;
+            top: 3px; bottom: 3px;
+            width: calc(50% - 3px);
+            background: var(--c-brand);
+            border-radius: var(--r-pill);
+            transition: transform 0.25s cubic-bezier(0.4,0,0.2,1);
+            transform: translateX(0);
+        }
+        .mode-pill-slider.touring { transform: translateX(calc(100% + 2px)); }
+        .mode-btn {
+            position: relative; z-index: 1;
+            font-family: var(--f-ui); font-size: 9px; font-weight: 800;
+            letter-spacing: 0.8px; text-transform: uppercase;
+            padding: 5px 14px; border-radius: var(--r-pill);
+            border: none; background: transparent; cursor: pointer;
+            color: var(--c-text-3); transition: color 0.2s;
+        }
+        .mode-btn.active { color: #09090D; }
+
+        /* ══════════════════════════════════════════
+           MAIN (map area)
+        ══════════════════════════════════════════ */
+        #app-main {
+            flex: 1; position: relative; overflow: hidden;
+            background: #0a0a0f;
+        }
+
+        /* Map container */
+        #map-container {
+            position: absolute; inset: 0; z-index: 10;
+        }
+        #map { width: 100%; height: 100%; }
+        .map-vignette {
+            position: absolute; inset: 0;
+            z-index: 400; pointer-events: none;
+        }
+        #custom-bg {
+            position: absolute; inset: 0;
+            width: 100%; height: 100%; object-fit: cover;
+            display: none; z-index: 401; opacity: 0.55; pointer-events: none;
+        }
+        #route-canvas {
+            position: absolute; inset: 0;
+            width: 100%; height: 100%;
+            display: none; z-index: 402; pointer-events: none;
+        }
+
+        /* ── FLOATING MAP CONTROLS ── */
+        #map-controls {
+            position: absolute; right: 14px; top: 50%;
+            transform: translateY(-50%);
+            z-index: 450;
+            display: flex; flex-direction: column; gap: 8px;
+        }
+        .map-ctrl-btn {
+            width: 40px; height: 40px;
+            background: var(--c-surface);
+            backdrop-filter: var(--blur-sm);
+            -webkit-backdrop-filter: var(--blur-sm);
+            border: 1px solid var(--c-border2);
+            border-radius: 14px;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; color: var(--c-text);
+            transition: all 0.18s ease;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+        }
+        .map-ctrl-btn svg {
+            width: 16px; height: 16px; stroke: var(--c-text-2);
+            fill: none; stroke-width: 2;
+            stroke-linecap: round; stroke-linejoin: round;
+            transition: stroke 0.2s;
+        }
+        .map-ctrl-btn:active { transform: scale(0.88); }
+        .map-ctrl-btn.active { background: var(--c-brand-dim); border-color: var(--c-brand-glow); }
+        .map-ctrl-btn.active svg { stroke: var(--c-brand); }
+        .map-ctrl-label {
+            font-family: var(--f-ui); font-size: 9px; font-weight: 900;
+            letter-spacing: 0.5px;
+        }
+
+        /* ══════════════════════════════════════════
+           DASHBOARD HUD
+        ══════════════════════════════════════════ */
+        #dashboard {
+            position: absolute;
+            bottom: 0; left: 0; right: 0;
+            z-index: 430;
+            padding: 0 12px 12px;
+            pointer-events: none;
+        }
+        #dashboard > * { pointer-events: auto; }
+
+        /* Touring sheet trigger handle */
+        #touring-handle {
+            display: none;
+            justify-content: center; align-items: center;
+            padding: 8px 0 4px;
+            cursor: pointer;
+        }
+        #touring-handle-bar {
+            width: 40px; height: 4px; border-radius: 2px;
+            background: rgba(255,255,255,0.18);
+            transition: background 0.2s;
+        }
+        #touring-handle:active #touring-handle-bar { background: var(--c-brand); }
+
+        /* HUD card */
+        #hud-card {
+            background: var(--c-surface);
+            backdrop-filter: var(--blur);
+            -webkit-backdrop-filter: var(--blur);
+            border: 1px solid var(--c-border2);
+            border-radius: var(--r-card);
+            overflow: hidden;
+            box-shadow: var(--shadow-card);
+        }
+
+        /* Speed section */
+        #hud-speed-row {
+            display: flex; align-items: center; justify-content: center;
+            flex-direction: column;
+            padding: 18px 20px 12px;
+            position: relative;
+        }
+
+        /* SVG Arc ring */
+        .speed-arc-wrap {
+            position: relative;
+            width: 140px; height: 80px;
+            overflow: visible;
+            margin-bottom: -10px;
+        }
+        .speed-arc-svg {
+            position: absolute; top: -24px; left: 50%;
+            transform: translateX(-50%);
+            width: 190px; height: 110px;
+            pointer-events: none;
+        }
+        .speed-arc-track { stroke: rgba(255,255,255,0.06); }
+        .speed-arc-fill {
+            stroke: var(--c-brand);
+            stroke-linecap: round;
+            filter: drop-shadow(0 0 6px var(--c-brand));
+            transition: stroke-dashoffset 0.5s cubic-bezier(0.4,0,0.2,1);
+        }
+
+        /* Big speed number */
+        #stat-speed {
+            font-family: var(--f-num);
+            font-size: 78px; font-weight: 700;
+            line-height: 1; letter-spacing: -4px;
+            color: var(--c-text);
+            text-shadow: 0 0 40px rgba(255,255,255,0.08);
+            transition: color 0.4s;
+        }
+        #stat-speed.speeding { color: var(--c-brand); text-shadow: 0 0 30px var(--c-brand-glow); }
+        .speed-unit {
+            font-family: var(--f-ui); font-size: 10px; font-weight: 700;
+            letter-spacing: 2px; color: var(--c-text-3);
+            text-transform: uppercase; margin-top: 4px;
+        }
+
+        /* Stats row */
+        #hud-stats-row {
+            display: grid; grid-template-columns: 1fr 1px 1fr 1px 1fr;
+            padding: 10px 16px 14px;
+            border-top: 1px solid var(--c-border);
+        }
+        .stat-divider { background: var(--c-border); }
+        .stat-cell {
+            display: flex; flex-direction: column; align-items: center; gap: 2px;
+        }
+        .stat-label {
+            font-family: var(--f-ui); font-size: 8px; font-weight: 700;
+            letter-spacing: 1px; text-transform: uppercase; color: var(--c-text-3);
+        }
+        .stat-value {
+            font-family: var(--f-num); font-size: 16px; font-weight: 700;
+            color: var(--c-text); letter-spacing: -0.5px;
+        }
+        .stat-sub {
+            font-family: var(--f-ui); font-size: 8px; font-weight: 500;
+            color: var(--c-text-3);
+        }
+
+        /* Ride controls (slide-up) */
+        #ride-controls {
+            display: none;
+            flex-direction: row;
+            gap: 8px; padding: 10px 14px 14px;
+            border-top: 1px solid var(--c-border);
+            animation: slideDown 0.25s ease;
+        }
+        #ride-controls.visible { display: flex; }
+        @keyframes slideDown { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+        .ride-btn {
+            flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
+            padding: 10px 12px; border-radius: 14px;
+            font-family: var(--f-ui); font-size: 10px; font-weight: 800;
+            letter-spacing: 0.5px; cursor: pointer; border: none;
+            transition: all 0.18s ease;
+        }
+        .ride-btn:active { transform: scale(0.93); }
+        .ride-btn svg { width: 14px; height: 14px; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+        #btn-pause-ride {
+            background: rgba(255,255,255,0.07);
+            border: 1px solid var(--c-border2);
+            color: var(--c-text);
+        }
+        #btn-pause-ride svg { stroke: var(--c-text); fill: none; }
+        #btn-stop-ride {
+            background: var(--c-danger-dim);
+            border: 1px solid rgba(255,71,87,0.3);
+            color: var(--c-danger);
+        }
+        #btn-stop-ride svg { stroke: var(--c-danger); fill: var(--c-danger); }
+
+        /* ══════════════════════════════════════════
+           TOURING BOTTOM SHEET
+        ══════════════════════════════════════════ */
+        #touring-sheet {
+            position: absolute; left: 0; right: 0; bottom: 0;
+            z-index: 420;
+            pointer-events: none;
+            transform: translateY(100%);
+            transition: transform 0.38s cubic-bezier(0.4,0,0.2,1);
+        }
+        #touring-sheet.open {
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+        #touring-sheet-inner {
+            background: var(--c-surface);
+            backdrop-filter: var(--blur);
+            -webkit-backdrop-filter: var(--blur);
+            border-top: 1px solid var(--c-border2);
+            border-radius: 22px 22px 0 0;
+            padding: 6px 16px 20px;
+            box-shadow: 0 -16px 40px rgba(0,0,0,0.55);
+        }
+        .sheet-handle {
+            width: 36px; height: 4px; border-radius: 2px;
+            background: rgba(255,255,255,0.15);
+            margin: 8px auto 14px;
+            cursor: pointer;
+        }
+        .sheet-title {
+            font-family: var(--f-ui); font-size: 11px; font-weight: 800;
+            letter-spacing: 1px; text-transform: uppercase;
+            color: var(--c-text-2); margin-bottom: 12px;
+        }
+        .form-group { margin-bottom: 10px; }
+        .form-label {
+            display: block; font-family: var(--f-ui);
+            font-size: 9px; font-weight: 700; letter-spacing: 1px;
+            text-transform: uppercase; color: var(--c-text-3);
+            margin-bottom: 5px;
+        }
+        .form-input, .form-textarea {
+            width: 100%;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--c-border);
+            border-radius: 12px;
+            padding: 10px 12px;
+            font-family: var(--f-ui); font-size: 12px; font-weight: 500;
+            color: var(--c-text);
+            outline: none;
+            transition: border-color 0.2s, background 0.2s;
+            -webkit-appearance: none;
+        }
+        .form-input::placeholder, .form-textarea::placeholder { color: var(--c-text-3); }
+        .form-input:focus, .form-textarea:focus {
+            border-color: var(--c-brand-glow);
+            background: rgba(189,255,0,0.04);
+        }
+        .form-textarea { resize: none; }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .form-photo-label {
+            display: flex; align-items: center; gap: 8px;
+            background: rgba(255,255,255,0.03);
+            border: 1.5px dashed var(--c-brand-glow);
+            border-radius: 12px;
+            padding: 10px 14px;
+            cursor: pointer; width: 100%;
+            transition: background 0.2s;
+        }
+        .form-photo-label:active { background: var(--c-brand-dim); }
+        .form-photo-label svg {
+            width: 16px; height: 16px; flex-shrink: 0;
+            stroke: var(--c-brand); fill: none; stroke-width: 2;
+        }
+        .form-photo-label span {
+            font-family: var(--f-ui); font-size: 12px; font-weight: 600;
+            color: var(--c-brand);
+        }
+
+        /* ══════════════════════════════════════════
+           BOTTOM NAV
+        ══════════════════════════════════════════ */
+        #app-nav {
+            flex: none; z-index: 50;
+            background: var(--c-surface);
+            backdrop-filter: var(--blur);
+            -webkit-backdrop-filter: var(--blur);
+            border-top: 1px solid var(--c-border);
+            padding: 10px 6px calc(10px + env(safe-area-inset-bottom, 0px)) 6px;
+            display: flex; align-items: center; justify-content: space-around;
+        }
+
+        .nav-item {
+            display: flex; flex-direction: column; align-items: center; gap: 3px;
+            padding: 6px 12px; border-radius: 14px;
+            cursor: pointer; position: relative;
+            transition: all 0.2s ease;
+            min-width: 52px;
+        }
+        .nav-item svg {
+            width: 20px; height: 20px;
+            stroke: var(--c-text-3); fill: none;
+            stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+            transition: stroke 0.2s, transform 0.2s;
+        }
+        .nav-item span {
+            font-family: var(--f-ui); font-size: 9px; font-weight: 700;
+            letter-spacing: 0.3px; color: var(--c-text-3);
+            transition: color 0.2s;
+        }
+        .nav-item.active {
+            background: var(--c-brand-dim);
+        }
+        .nav-item.active svg { stroke: var(--c-brand); transform: translateY(-1px); }
+        .nav-item.active span { color: var(--c-brand); }
+        .nav-item:active { transform: scale(0.88); }
+
+        /* Center record button */
+        #btn-record {
+            position: relative;
+            display: flex; flex-direction: column; align-items: center; gap: 2px;
+            padding: 8px 20px 7px;
+            background: var(--c-brand);
+            border-radius: 18px;
+            border: none; cursor: pointer; outline: none;
+            box-shadow: 0 0 20px var(--c-brand-glow), 0 4px 12px rgba(0,0,0,0.4);
+            transition: all 0.2s ease;
+            margin-bottom: 4px;
+        }
+        #btn-record svg { width: 18px; height: 18px; stroke: #09090D; fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+        #btn-record span {
+            font-family: var(--f-ui); font-size: 9px; font-weight: 900;
+            color: #09090D; letter-spacing: 0.5px; text-transform: uppercase;
+        }
+        #btn-record.recording {
+            background: var(--c-danger-dim);
+            border: 1px solid rgba(255,71,87,0.4);
+            box-shadow: 0 0 22px var(--c-danger-glow);
+            animation: recPulse 1.8s ease-in-out infinite;
+        }
+        #btn-record.recording svg { stroke: var(--c-danger); }
+        #btn-record.recording span { color: var(--c-danger); }
+        #btn-record:active { transform: scale(0.92); }
+        @keyframes recPulse {
+            0%,100% { box-shadow: 0 0 14px var(--c-danger-glow); }
+            50%      { box-shadow: 0 0 30px rgba(255,71,87,0.6); }
+        }
+
+        /* ══════════════════════════════════════════
+           TOAST
+        ══════════════════════════════════════════ */
+        #toast {
+            position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%) translateY(12px);
+            z-index: 900;
+            background: rgba(14,14,22,0.96);
+            backdrop-filter: var(--blur-sm);
+            -webkit-backdrop-filter: var(--blur-sm);
+            border: 1px solid var(--c-border2);
+            border-radius: var(--r-pill);
+            padding: 9px 18px;
+            font-family: var(--f-ui); font-size: 12px; font-weight: 600;
+            color: var(--c-text);
+            white-space: nowrap; pointer-events: none;
+            opacity: 0; transition: opacity 0.25s ease, transform 0.25s ease;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+        }
+        #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+        /* ══════════════════════════════════════════
+           SHARE PREVIEW MODAL
+        ══════════════════════════════════════════ */
+        #share-preview {
+            position: fixed; inset: 0; z-index: 1000;
+            background: rgba(4,4,8,0.95);
+            backdrop-filter: var(--blur);
+            -webkit-backdrop-filter: var(--blur);
+            display: none; flex-direction: column;
+        }
+        #share-preview.open { display: flex; }
+
+        .share-header {
+            flex: none; padding: 12px 14px;
+            display: flex; align-items: center; justify-content: space-between;
+            border-bottom: 1px solid var(--c-border);
+            background: rgba(14,14,20,0.95);
+        }
+        @media (max-width: 480px) {
+            .share-header { padding: 10px 12px; }
+        }
+        #btn-close-preview {
+            display: flex; align-items: center; gap: 5px;
+            font-family: var(--f-ui); font-size: 12px; font-weight: 600;
+            color: var(--c-text-2); background: none; border: none; cursor: pointer;
+        }
+        #btn-close-preview svg { width: 16px; height: 16px; stroke: var(--c-text-2); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+        .share-header-title {
+            font-family: var(--f-ui); font-size: 11px; font-weight: 700;
+            letter-spacing: 0.8px; text-transform: uppercase; color: var(--c-text-3);
+        }
+        #btn-download-share {
+            background: var(--c-brand); color: #09090D;
+            font-family: var(--f-ui); font-size: 11px; font-weight: 800;
+            padding: 8px 18px; border-radius: var(--r-pill);
+            border: none; cursor: pointer;
+            box-shadow: 0 0 16px var(--c-brand-glow);
+            transition: all 0.18s;
+        }
+        #btn-download-share:active { transform: scale(0.93); }
+
+        #share-card-wrapper {
+            flex: 1; overflow-y: auto; padding: 12px;
+            display: flex; align-items: flex-start; justify-content: center;
+        }
+        @media (max-width: 480px) {
+            #share-card-wrapper { padding: 8px; }
+            #share-card { border-radius: 20px; min-height: 460px; }
+            #share-card-inner { min-height: 460px; }
+            .share-stat-val { font-size: 20px; }
+            .share-stat-val.lg { font-size: 24px; }
+            #share-title { font-size: 18px; }
+            .share-stats-section { padding: 16px 14px 12px; }
+            .share-card-top { padding: 14px 14px 4px; }
+            .share-route-area { padding: 2px 14px; min-height: 100px; }
+            #share-route-svg { height: 110px; }
+            #share-histogram-bars { height: 24px; }
+        }
+
+        /* ══════ SHARE CARD - INSPIRED BY MOTO TOURING CARD ══════ */
+        #share-card {
+            width: 100%; max-width: 400px;
+            border-radius: 24px;
+            overflow: hidden;
+            display: flex; flex-direction: column;
+            position: relative; min-height: 500px;
+            background-size: cover; background-position: center;
+            box-shadow: 0 24px 64px rgba(0,0,0,0.8);
+            border: 1px solid rgba(255,255,255,0.06);
+        }
+        #share-card-inner {
+            position: relative; z-index: 2;
+            display: flex; flex-direction: column; min-height: 500px;
+            width: 100%;
+        }
+        #share-overlay {
+            position: absolute; inset: 0; z-index: 1;
+            background: linear-gradient(160deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.15) 40%, rgba(0,0,0,0.85) 100%);
+            pointer-events: none;
+        }
+        .share-card-top {
+            position: relative; z-index: 3;
+            padding: 18px 18px 8px;
+            display: flex; flex-direction: column; gap: 5px;
+        }
+        .share-badge {
+            display: inline-flex; align-items: center; gap: 5px;
+            background: rgba(0,0,0,0.55);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: var(--r-pill);
+            padding: 4px 10px;
+            font-family: var(--f-ui); font-size: 8px; font-weight: 700;
+            letter-spacing: 1px; text-transform: uppercase; color: rgba(255,255,255,0.75);
+            align-self: flex-start;
+        }
+        .share-badge-dot {
+            width: 5px; height: 5px; border-radius: 50%;
+            background: var(--c-brand); box-shadow: 0 0 6px var(--c-brand);
+            animation: gpsPulse 2s infinite;
+        }
+        #share-title {
+            font-family: var(--f-ui); font-size: 22px; font-weight: 900;
+            letter-spacing: -0.5px; text-transform: uppercase; color: var(--c-text);
+            line-height: 1.1;
+        }
+        #share-motor-label {
+            display: flex; align-items: center; gap: 4px;
+            font-family: var(--f-ui); font-size: 10px; font-weight: 500;
+            color: rgba(255,255,255,0.5);
+        }
+        #share-motor-label svg { width: 12px; height: 12px; stroke: var(--c-brand); fill: none; stroke-width: 2; }
+
+        /* Route SVG area - inspired by example track outline */
+        .share-route-area {
+            position: relative; z-index: 3;
+            flex: 1; display: flex; align-items: center; justify-content: center;
+            padding: 4px 18px;
+            min-height: 120px;
+        }
+        #share-route-svg {
+            width: 100%; height: 130px;
+            filter: drop-shadow(0 0 6px rgba(189,255,0,0.4));
+        }
+
+        /* Stats section - dark gradient at bottom like example */
+        .share-stats-section {
+            position: relative; z-index: 3;
+            background: linear-gradient(to top, rgba(0,0,0,0.96) 0%, rgba(0,0,0,0.8) 50%, transparent 100%);
+            padding: 20px 18px 14px;
+            display: flex; flex-direction: column; gap: 10px;
+            margin-top: auto;
+        }
+        .share-stat-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .share-stat-block { display: flex; flex-direction: column; gap: 1px; }
+        .share-stat-block.right { align-items: flex-end; }
+        .share-stat-block.center { align-items: center; }
+        .share-stat-lbl {
+            font-family: var(--f-ui); font-size: 8px; font-weight: 700;
+            letter-spacing: 1px; text-transform: uppercase; color: rgba(255,255,255,0.35);
+        }
+        .share-stat-val {
+            font-family: var(--f-num); font-size: 22px; font-weight: 700;
+            letter-spacing: -1px; color: var(--c-text);
+        }
+        .share-stat-val.accent { color: var(--c-brand); }
+        .share-stat-val.lg { font-size: 28px; }
+        .share-stat-sub {
+            font-family: var(--f-ui); font-size: 8px; font-weight: 500;
+            color: rgba(255,255,255,0.3);
+        }
+
+        /* Mini inline charts (elevation & speed trend) */
+        .share-mini-chart {
+            width: 100%; height: 18px; margin-top: 2px;
+            opacity: 0.7;
+        }
+        .share-mini-chart svg { width: 100%; height: 100%; }
+
+        /* Histogram bars */
+        .share-histogram {
+            display: flex; flex-direction: column; gap: 4px;
+        }
+        .share-histogram-header {
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .share-histogram-lbl {
+            font-family: var(--f-ui); font-size: 8px; font-weight: 700;
+            letter-spacing: 0.8px; text-transform: uppercase;
+            color: rgba(255,255,255,0.3);
+        }
+        #share-rpm-peak {
+            font-family: var(--f-ui); font-size: 8px; font-weight: 700;
+            color: var(--c-brand);
+        }
+        #share-histogram-bars {
+            display: flex; align-items: flex-end; gap: 2px; height: 28px;
+        }
+        .share-hist-bar {
+            flex: 1; border-radius: 2px;
+            background: rgba(255,255,255,0.1);
+            transition: height 0.4s cubic-bezier(0.4,0,0.2,1);
+        }
+        .share-hist-bar.peak {
+            background: var(--c-brand);
+            box-shadow: 0 0 6px var(--c-brand-glow);
+        }
+        .share-hist-bar.high { background: var(--c-brand); opacity: 0.7; }
+        .share-hist-bar.mid { background: var(--c-brand); opacity: 0.4; }
+
+        #share-notes-row { display: none; flex-direction: column; gap: 2px; margin-top: 2px; }
+        #share-notes-row.visible { display: flex; }
+        .share-notes-lbl {
+            font-family: var(--f-ui); font-size: 8px; font-weight: 700;
+            letter-spacing: 0.8px; text-transform: uppercase;
+            color: rgba(255,255,255,0.3);
+        }
+        #share-notes {
+            font-family: var(--f-ui); font-size: 10px; font-weight: 500;
+            color: rgba(255,255,255,0.5); line-height: 1.3;
+        }
+        .share-footer {
+            font-family: var(--f-ui); font-size: 8px; font-weight: 700;
+            letter-spacing: 2px; text-align: center;
+            color: rgba(255,255,255,0.15); text-transform: uppercase;
+            padding-top: 4px;
+        }
+
+        /* Top speed & lean angle sub-labels */
+        .share-stat-sub-accent {
+            font-family: var(--f-ui); font-size: 7px; font-weight: 600;
+            color: var(--c-brand); letter-spacing: 0.5px;
+        }
+
+        /* Share footer controls */
+        .share-footer-controls {
+            flex: none;
+            background: rgba(10,10,16,0.97);
+            border-top: 1px solid var(--c-border);
+            padding: 12px 14px calc(12px + env(safe-area-inset-bottom, 0px));
+            display: flex; flex-direction: column; gap: 8px;
+        }
+        @media (max-width: 480px) {
+            .share-footer-controls { padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px)); gap: 6px; }
+            .style-chip { font-size: 9px; padding: 5px 10px; }
+            .share-bg-btn { font-size: 9px; padding: 5px 10px; }
+            #btn-download-share { font-size: 10px; padding: 7px 14px; }
+            #btn-save-local { font-size: 10px; padding: 10px; }
+        }
+        .style-chips {
+            display: flex; gap: 6px; justify-content: center; flex-wrap: wrap;
+        }
+        .style-chip {
+            font-family: var(--f-ui); font-size: 10px; font-weight: 700;
+            padding: 6px 14px; border-radius: var(--r-pill);
+            border: 1px solid var(--c-border2); color: var(--c-text-2);
+            background: transparent; cursor: pointer;
+            transition: all 0.18s;
+        }
+        .style-chip.active { background: var(--c-brand); border-color: var(--c-brand); color: #09090D; }
+        .style-chip:active { transform: scale(0.91); }
+
+        .share-bg-row { display: flex; gap: 8px; justify-content: center; }
+        .share-bg-btn {
+            display: inline-flex; align-items: center; gap: 6px;
+            font-family: var(--f-ui); font-size: 10px; font-weight: 700;
+            padding: 7px 14px; border-radius: var(--r-pill);
+            background: rgba(255,255,255,0.05);
+            border: 1px dashed var(--c-border2);
+            color: var(--c-text-2); cursor: pointer;
+            transition: all 0.18s;
+        }
+        .share-bg-btn svg { width: 13px; height: 13px; stroke: var(--c-brand); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+        .share-bg-btn:active { transform: scale(0.92); }
+        .share-bg-btn.reset { border-style: solid; }
+
+        #btn-save-local {
+            width: 100%;
+            padding: 13px;
+            border-radius: 14px;
+            background: rgba(255,255,255,0.07);
+            border: 1px solid var(--c-border2);
+            font-family: var(--f-ui); font-size: 12px; font-weight: 800;
+            color: var(--c-text); cursor: pointer;
+            transition: all 0.18s;
+        }
+        #btn-save-local:active { transform: scale(0.97); background: rgba(255,255,255,0.11); }
+
+        /* ══════════════════════════════════════════
+           UTILITIES
+        ══════════════════════════════════════════ */
+        .hidden { display: none !important; }
     </style>
 </head>
-<body class="bg-black h-screen w-full flex items-center justify-center overflow-hidden font-sans">
+<body>
 
-    <!-- WRAPPER APLIKASI -->
-    <div id="mobile-app" class="w-full h-full sm:w-[400px] sm:h-[850px] sm:max-h-[95vh] sm:border-[8px] sm:border-zinc-800 sm:rounded-[40px] bg-darkBg text-white flex flex-col relative overflow-hidden shadow-2xl sm:ring-1 sm:ring-zinc-700">
+    <!-- ═══════════════ APP SHELL ═══════════════ -->
+    <div id="app">
 
-        <!-- HEADER -->
-        <header class="bg-[#121212] px-4 pt-5 pb-3 flex items-center justify-between border-b border-zinc-800 z-50 flex-none relative">
-            <div class="flex items-center gap-1.5">
-                <i data-lucide="settings" class="w-4 h-4 text-brand"></i>
-                <h1 class="text-[1.1rem] font-bold tracking-tight text-white">cekMotor<span class="text-brand">mu.id</span></h1>
+        <!-- ── HEADER ── -->
+        <header id="app-header">
+            <div class="header-logo">
+                <div class="header-logo-icon">
+                    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+                </div>
+                <div class="header-logo-text">cekMotor<span>mu.id</span></div>
             </div>
-            <div class="bg-zinc-900 p-1 rounded-full flex gap-1 border border-zinc-800 shadow-inner">
-                <button id="btn-mode-speed" onclick="switchMode('speed')" class="px-3 py-1 rounded-full text-[10px] font-black tracking-wider bg-brand text-black shadow">SPEED</button>
-                <button id="btn-mode-touring" onclick="switchMode('touring')" class="px-3 py-1 rounded-full text-[10px] font-black tracking-wider text-zinc-400">TOURING</button>
+
+            <div style="display:flex;align-items:center;gap:10px;">
+                <div class="gps-status">
+                    <div class="gps-dot" id="gps-dot"></div>
+                    <span id="gps-label">GPS</span>
+                </div>
+
+                <div class="mode-pill" id="mode-pill">
+                    <div class="mode-pill-slider" id="mode-slider"></div>
+                    <button class="mode-btn active" id="btn-mode-speed" onclick="switchMode('speed')">Speed</button>
+                    <button class="mode-btn" id="btn-mode-touring" onclick="switchMode('touring')">Touring</button>
+                </div>
             </div>
         </header>
 
-        <!-- KONTEN UTAMA -->
-        <main class="flex-1 relative w-full bg-zinc-950 flex flex-col overflow-hidden">
+        <!-- ── MAIN (map) ── -->
+        <main id="app-main">
 
-            <!-- MAPS LAYER -->
-            <div id="map-container" class="absolute inset-0 z-10 fade-transition">
-                <div id="map" class="w-full h-full"></div>
-                <div class="absolute inset-0 leaflet-vignette z-[400]"></div>
-                <img id="custom-bg" class="absolute inset-0 w-full h-full object-cover hidden z-[401] opacity-50 pointer-events-none" alt="BG">
-                <canvas id="route-canvas" class="absolute inset-0 w-full h-full hidden z-[402] pointer-events-none"></canvas>
+            <!-- Map layer -->
+            <div id="map-container">
+                <div id="map"></div>
+                <div class="absolute inset-0 map-vignette" style="position:absolute;inset:0;z-index:400;pointer-events:none;"></div>
+                <img id="custom-bg" alt="background">
+                <canvas id="route-canvas"></canvas>
             </div>
 
-            <!-- MODAL INPUT TOURING -->
-            <div id="touring-inputs" class="absolute top-4 left-4 right-4 z-40 bg-black/85 backdrop-blur-md p-4 rounded-2xl border border-zinc-800 flex flex-col gap-3 hidden">
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <label class="text-[10px] text-zinc-400 block mb-1 font-bold uppercase tracking-wider">Nama Rute</label>
-                        <input type="text" id="in-track" placeholder="cth: Sunset Road - Dalung" class="w-full bg-zinc-900/90 border border-zinc-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-brand transition">
-                    </div>
-                    <div>
-                        <label class="text-[10px] text-zinc-400 block mb-1 font-bold uppercase tracking-wider">Motor</label>
-                        <input type="text" id="in-motor" placeholder="cth: Yamaha TMAX" class="w-full bg-zinc-900/90 border border-zinc-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-brand transition">
-                    </div>
-                </div>
-                <div class="flex gap-2">
-                    <div class="flex-1">
-                        <label class="text-[10px] text-zinc-400 block mb-1 font-bold uppercase tracking-wider">KM Awal (Odometer)</label>
-                        <input type="number" id="in-odometer" placeholder="12500" class="w-full bg-zinc-900/90 border border-zinc-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-brand transition">
-                    </div>
-                </div>
-                <div>
-                    <label class="text-[10px] text-zinc-400 block mb-1 font-bold uppercase tracking-wider">Catatan Rute</label>
-                    <textarea id="in-notes" rows="2" placeholder="cth: Jalanan macet di Denpasar..." class="w-full bg-zinc-900/90 border border-zinc-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-brand transition resize-none"></textarea>
-                </div>
-                <label class="block bg-zinc-900/50 border border-dashed border-brand rounded-xl p-2.5 text-center text-xs flex items-center justify-center gap-2 cursor-pointer">
-                    <i data-lucide="image" class="w-4 h-4 text-brand"></i>
-                    <span id="bg-status" class="font-semibold text-brand">Pasang Foto Galeri</span>
-                    <input type="file" id="file-bg" accept="image/*" class="hidden">
-                </label>
-            </div>
-
-            <!-- DASHBOARD STATS -->
-            <div class="absolute bottom-6 left-4 right-4 z-40 bg-zinc-900/95 backdrop-blur-xl rounded-2xl p-4 border border-zinc-800/80 shadow-[0_10px_30px_rgba(0,0,0,0.5)] flex flex-col gap-2">
-                <div class="flex justify-between items-center border-b border-zinc-800/80 pb-2">
-                    <div id="lbl-track" class="text-[10px] font-black tracking-widest uppercase text-zinc-300 truncate">RUTE AKTIF</div>
-                    <div id="lbl-motor" class="text-[10px] px-2 py-0.5 rounded bg-brand/10 text-brand font-black border border-brand/20 tracking-wide uppercase truncate">-</div>
-                </div>
-                <div class="text-center py-1">
-                    <span id="stat-speed" class="text-5xl font-black text-brand tracking-tight">0</span>
-                    <span class="text-xs font-bold text-zinc-400 tracking-wider ml-1">KM/H</span>
-                </div>
-                <div class="grid grid-cols-3 gap-1 text-center pt-1">
-                    <div>
-                        <div class="text-[8px] font-bold text-zinc-400 uppercase tracking-widest">Top Speed</div>
-                        <div id="stat-topspeed" class="text-sm font-black text-white tracking-tight mt-0.5">0 <span class="text-[7px] font-normal text-zinc-400">km/h</span></div>
-                    </div>
-                    <div class="border-x border-zinc-800">
-                        <div class="text-[8px] font-bold text-zinc-400 uppercase tracking-widest">Jarak</div>
-                        <div id="stat-distance" class="text-sm font-black text-white tracking-tight mt-0.5">0.0 <span class="text-[7px] font-normal text-zinc-400">km</span></div>
-                    </div>
-                    <div>
-                        <div class="text-[8px] font-bold text-zinc-400 uppercase tracking-widest">Waktu</div>
-                        <div id="stat-time" class="text-sm font-black text-white tracking-tight mt-0.5">00:00</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- FLOATING MAP CONTROL -->
-            <div class="absolute right-4 top-1/2 -translate-y-1/2 z-40 flex flex-col gap-3 pointer-events-auto">
-                <button onclick="recenterMap()" class="w-10 h-10 bg-zinc-900/90 backdrop-blur rounded-full border border-zinc-800 flex items-center justify-center text-white active:scale-90 transition shadow-lg">
-                    <i data-lucide="crosshair" class="w-4 h-4"></i>
+            <!-- Floating map controls -->
+            <div id="map-controls">
+                <button class="map-ctrl-btn" onclick="recenterMap()" id="btn-recenter" title="Recenter">
+                    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
                 </button>
-                <button onclick="toggle3D()" id="btn-3d" class="w-10 h-10 bg-zinc-900/90 backdrop-blur rounded-full border border-zinc-800 flex items-center justify-center text-[10px] font-black text-white active:scale-90 transition shadow-lg">3D</button>
-            </div>
-        </main>
-
-        <!-- TOAST -->
-        <div id="toast" class="fixed bottom-28 left-1/2 -translate-x-1/2 z-[60] bg-black/90 backdrop-blur-md px-5 py-2.5 rounded-xl text-sm font-semibold text-white opacity-0 transition-all duration-300 pointer-events-none whitespace-nowrap shadow-lg border border-zinc-700/50">Toast</div>
-
-        <!-- BOTTOM NAV -->
-        <nav class="bg-[#121212] px-2 pb-5 pt-3 flex justify-between items-center border-t border-zinc-900 z-50 flex-none relative w-full">
-            <div class="flex flex-col items-center opacity-40 cursor-pointer w-[20%]">
-                <i data-lucide="search" class="w-5 h-5 text-white"></i>
-                <span class="text-[9px] font-bold mt-1">Cari</span>
-            </div>
-            <div class="flex flex-col items-center opacity-40 cursor-pointer w-[20%]">
-                <i data-lucide="heart" class="w-5 h-5 text-white"></i>
-                <span class="text-[9px] font-bold mt-1">Fav</span>
-            </div>
-
-            <div class="w-[20%] flex justify-center">
-                <button id="btn-record" onclick="toggleTracking()" class="absolute -top-7 w-16 h-16 bg-brand rounded-full border-[6px] border-[#121212] flex items-center justify-center shadow-[0_0_20px_rgba(204,255,0,0.15)] transition-all duration-300 active:scale-95">
-                    <i id="icon-play" data-lucide="play" class="w-7 h-7 text-black fill-black ml-1"></i>
-                    <i id="icon-pause" data-lucide="pause" class="w-7 h-7 text-black fill-black ml-1 hidden"></i>
+                <button class="map-ctrl-btn" onclick="toggle3D()" id="btn-3d" title="3D Mode">
+                    <span class="map-ctrl-label" style="font-family:var(--f-ui);font-size:9px;font-weight:900;color:var(--c-text-2);">3D</span>
                 </button>
             </div>
 
-            <div class="w-[20%] flex justify-center">
-                <button id="btn-finish" onclick="finishTracking()" class="absolute -top-5 w-12 h-12 bg-red-600 rounded-full border-4 border-[#121212] flex items-center justify-center shadow-md z-40 active:scale-95 transition">
-                    <i data-lucide="square" class="w-4 h-4 text-white fill-white"></i>
-                </button>
+            <!-- Dashboard HUD -->
+            <div id="dashboard">
+
+                <!-- Touring sheet trigger (shown in touring mode) -->
+                <div id="touring-handle" onclick="toggleTouringSheet()">
+                    <div id="touring-handle-bar"></div>
+                </div>
+
+                <div id="hud-card">
+                    <!-- Speed arc + number -->
+                    <div id="hud-speed-row">
+                        <div class="speed-arc-wrap">
+                            <svg class="speed-arc-svg" viewBox="0 0 190 110">
+                                <!-- Arc track -->
+                                <path class="speed-arc-track" id="arc-track"
+                                    d="M 20,95 A 75,75 0 0,1 170,95"
+                                    stroke-width="5" fill="none" stroke-linecap="round"/>
+                                <!-- Arc fill (animated via JS) -->
+                                <path class="speed-arc-fill" id="arc-fill"
+                                    d="M 20,95 A 75,75 0 0,1 170,95"
+                                    stroke-width="5" fill="none" stroke-linecap="round"
+                                    stroke-dasharray="236" stroke-dashoffset="236"/>
+                            </svg>
+                        </div>
+                        <div id="stat-speed">0</div>
+                        <div class="speed-unit">km/h</div>
+                    </div>
+
+                    <!-- 3 stat chips -->
+                    <div id="hud-stats-row">
+                        <div class="stat-cell">
+                            <div class="stat-label">Top Speed</div>
+                            <div class="stat-value" id="stat-topspeed">0</div>
+                            <div class="stat-sub">km/h</div>
+                        </div>
+                        <div class="stat-divider"></div>
+                        <div class="stat-cell">
+                            <div class="stat-label">Jarak</div>
+                            <div class="stat-value" id="stat-distance">0.00</div>
+                            <div class="stat-sub">km</div>
+                        </div>
+                        <div class="stat-divider"></div>
+                        <div class="stat-cell">
+                            <div class="stat-label">Waktu</div>
+                            <div class="stat-value" id="stat-time">00:00</div>
+                            <div class="stat-sub">&nbsp;</div>
+                        </div>
+                    </div>
+
+                    <!-- Ride controls (show when tracking) -->
+                    <div id="ride-controls">
+                        <button class="ride-btn" id="btn-pause-ride" onclick="toggleTracking()">
+                            <svg id="icon-pause-inner" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                            <svg id="icon-play-inner" viewBox="0 0 24 24" style="display:none;"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                            <span id="pause-btn-label">JEDA</span>
+                        </button>
+                        <button class="ride-btn" id="btn-stop-ride" onclick="finishTracking()">
+                            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+                            <span>SELESAI</span>
+                        </button>
+                    </div>
+                </div><!-- /hud-card -->
+            </div><!-- /dashboard -->
+
+            <!-- Touring bottom sheet -->
+            <div id="touring-sheet">
+                <div id="touring-sheet-inner">
+                    <div class="sheet-handle" onclick="toggleTouringSheet()"></div>
+                    <div class="sheet-title">Setup Rute Touring</div>
+
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label" for="in-track">Nama Rute</label>
+                            <input type="text" class="form-input" id="in-track" placeholder="cth: Sunset Dalung">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="in-motor">Motor</label>
+                            <input type="text" class="form-input" id="in-motor" placeholder="cth: TMAX 560">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="in-odometer">KM Odometer Awal</label>
+                        <input type="number" class="form-input" id="in-odometer" placeholder="12500">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="in-notes">Catatan</label>
+                        <textarea class="form-textarea" id="in-notes" rows="2" placeholder="cth: Jalanan macet di Denpasar..."></textarea>
+                    </div>
+
+                    <label class="form-photo-label">
+                        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2.5"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                        <span id="bg-status">Pasang Foto Latar</span>
+                        <input type="file" id="file-bg" accept="image/*" class="hidden">
+                    </label>
+                </div>
             </div>
 
-            <div class="flex flex-col items-center opacity-40 cursor-pointer w-[20%]">
-                <i data-lucide="user" class="w-5 h-5 text-white"></i>
-                <span class="text-[9px] font-bold mt-1">Profil</span>
+        </main><!-- /app-main -->
+
+        <!-- Toast -->
+        <div id="toast">Toast</div>
+
+        <!-- ── BOTTOM NAV ── -->
+        <nav id="app-nav">
+            <div class="nav-item active" id="bn-peta" onclick="navClick('peta')">
+                <svg viewBox="0 0 24 24"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+                <span>Peta</span>
+            </div>
+            <div class="nav-item" id="bn-statistik" onclick="navClick('statistik')">
+                <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                <span>Statistik</span>
+            </div>
+
+            <!-- Center: Record -->
+            <button id="btn-record" onclick="toggleTracking()">
+                <svg id="icon-play" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3" style="fill:#09090D;stroke:#09090D;"/></svg>
+                <svg id="icon-pause" viewBox="0 0 24 24" style="display:none;"><rect x="6" y="4" width="4" height="16" style="fill:var(--c-danger);stroke:none;"/><rect x="14" y="4" width="4" height="16" style="fill:var(--c-danger);stroke:none;"/></svg>
+                <span id="record-label">MULAI</span>
+            </button>
+
+            <div class="nav-item" id="bn-riwayat" onclick="navClick('riwayat')">
+                <svg viewBox="0 0 24 24"><polyline points="12 8 12 12 14 14"/><path d="M3.05 11a9 9 0 1 1 .5 4m-.5 5v-5h5"/></svg>
+                <span>Riwayat</span>
+            </div>
+            <div class="nav-item" id="bn-share" onclick="navClick('share')">
+                <svg viewBox="0 0 24 24"><polyline points="17 1 23 7 17 13"/><path d="M12 19V7"/><path d="M5 19v-4a4 4 0 0 1 4-4h6"/></svg>
+                <span>Share</span>
             </div>
         </nav>
-    </div>
 
-    <!-- SHARE PREVIEW MODAL (full screen, outside mobile-app) -->
-    <div id="share-preview" class="fixed inset-0 z-[100] bg-black/90 hidden flex-col">
-        <div class="flex items-center justify-between px-4 py-3 border-b border-zinc-800 flex-none bg-[#121212]">
-            <button id="btn-close-preview" class="text-zinc-400 text-sm font-semibold">&larr; Kembali</button>
-            <span class="text-xs text-zinc-500 font-medium">Bagikan Pencapaian</span>
-            <button id="btn-download-share" class="bg-brand text-black text-xs font-bold px-4 py-2 rounded-full">Download</button>
+    </div><!-- /app -->
+
+    <!-- ═══════════════ SHARE PREVIEW MODAL ═══════════════ -->
+    <div id="share-preview">
+        <div class="share-header">
+            <button id="btn-close-preview">
+                <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+                Kembali
+            </button>
+            <span class="share-header-title">Bagikan Pencapaian</span>
+            <button id="btn-download-share">Download</button>
         </div>
 
-        <div id="share-card-wrapper" class="flex-1 flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
-            <div id="share-card" class="relative w-full max-w-[360px] bg-cover bg-center rounded-[24px] sm:rounded-[32px] overflow-hidden shadow-2xl border border-zinc-800/80 flex flex-col justify-between text-white"
-                 style="background-image: linear-gradient(145deg, #1a1a2e, #0a0a0a); min-height: 420px; max-height: 90vh;">
-                
-                <div id="share-overlay" class="absolute inset-0 bg-gradient-to-b from-black/50 via-black/20 to-black/90 z-0"></div>
+        <div id="share-card-wrapper">
+            <div id="share-card">
+                <div id="share-overlay"></div>
+                <div id="share-card-inner">
 
-                <div class="relative z-10 w-full flex flex-col gap-1 px-6 pt-6">
-                    <div class="flex justify-between items-center">
-                        <span class="bg-black/40 backdrop-blur-md text-[10px] font-bold tracking-wider uppercase px-3 py-1.5 rounded-full border border-white/10 flex items-center gap-1.5">
-                            <span class="w-1.5 h-1.5 rounded-full bg-brand animate-pulse"></span>
-                            Touring Mode
-                        </span>
-                        <i data-lucide="settings" class="w-5 h-5 text-brand"></i>
+                <!-- Card top -->
+                <div class="share-card-top">
+                    <span class="share-badge">
+                        <span class="share-badge-dot"></span>
+                        Touring Mode | <span id="share-stage">Stage 01</span>
+                    </span>
+                    <div id="share-title">Rute Aktif</div>
+                    <div id="share-motor-label">
+                        <svg viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z"/></svg>
+                        <span>-</span>
                     </div>
-                    <h1 class="text-xl font-black font-display tracking-tight mt-2 uppercase" id="share-title">Rute Aktif</h1>
-                    <p class="text-[10px] text-zinc-300 font-light tracking-wide flex items-center gap-1">
-                        <svg class="w-3 h-3 text-brand" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z"/></svg>
-                        <span id="share-motor-label">-</span>
-                    </p>
                 </div>
 
-                <div class="relative z-10 w-full flex justify-center items-center py-4 flex-1">
-                    <svg id="share-route-svg" class="w-11/12 h-full max-h-[200px] share-route-svg" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path id="share-route-path" d="" stroke="#CCFF00" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" />
-                        <circle id="share-start-dot" cx="0" cy="0" r="4.5" fill="#FFFFFF" />
-                        <circle id="share-start-inner" cx="0" cy="0" r="2" fill="#000000" />
+                <!-- Route outline SVG - inspired by moto touring track -->
+                <div class="share-route-area">
+                    <svg id="share-route-svg" viewBox="0 0 200 160" fill="none">
+                        <path id="share-route-path" d="" stroke="#BDFF00" stroke-width="3.5"
+                            stroke-linecap="round" stroke-linejoin="round"
+                            filter="url(#routeGlow)"/>
+                        <circle id="share-start-dot" cx="0" cy="0" r="5" fill="#FFFFFF"/>
+                        <circle id="share-start-inner" cx="0" cy="0" r="2.5" fill="#000"/>
+                        <defs>
+                            <filter id="routeGlow" x="-30%" y="-30%" width="160%" height="160%">
+                                <feGaussianBlur stdDeviation="3" result="blur"/>
+                                <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                            </filter>
+                        </defs>
                     </svg>
                 </div>
 
-                <div class="relative z-10 w-full flex flex-col gap-3 bg-gradient-to-t from-black/95 via-black/70 to-transparent pt-8 px-6 pb-5">
-                    <div class="grid grid-cols-2 gap-3">
-                        <div class="flex flex-col">
-                            <span class="text-[10px] text-zinc-400 font-medium tracking-wider uppercase">Total Distance</span>
-                            <div class="flex items-baseline gap-0.5">
-                                <span class="text-2xl font-black font-display tracking-tight text-brand share-distance-value" id="share-dist">0.00</span>
-                                <span class="text-xs font-semibold text-zinc-300">km</span>
+                <!-- Stats section -->
+                <div class="share-stats-section">
+                    <!-- Row 1: Total Distance + Elevation Gain -->
+                    <div class="share-stat-grid-2 share-row1">
+                        <div class="share-stat-block">
+                            <div class="share-stat-lbl">Total Distance</div>
+                            <div class="share-stat-val accent lg" id="share-dist">0.00</div>
+                            <div class="share-stat-sub">km</div>
+                        </div>
+                        <div class="share-stat-block right share-elevation-block">
+                            <div class="share-stat-lbl">Elevation Gain</div>
+                            <div class="share-stat-val" id="share-elevation">0</div>
+                            <div class="share-stat-sub">hm</div>
+                            <!-- Mini elevation trend chart -->
+                            <div class="share-mini-chart">
+                                <svg viewBox="0 0 100 18" fill="none">
+                                    <path id="share-elevation-path" d="M0,16 Q20,13 40,6 T80,3 T100,10" stroke="#BDFF00" stroke-width="1.5" fill="none" opacity="0.8"/>
+                                </svg>
                             </div>
                         </div>
-                        <div class="flex flex-col share-elevation-label">
-                            <span class="text-[10px] text-zinc-400 font-medium tracking-wider uppercase">Elevation Gain</span>
-                            <div class="text-sm font-bold text-zinc-100 mt-0.5" id="share-elevation">0 hm</div>
-                            <svg class="w-full h-4 mt-1 opacity-80 share-elevation-chart" viewBox="0 0 100 20" fill="none">
-                                <path d="M0,18 Q20,15 40,8 T80,4 T100,12" stroke="#CCFF00" stroke-width="1.5" fill="none"/>
-                            </svg>
-                        </div>
                     </div>
 
-                    <div class="grid grid-cols-3 gap-2">
-                        <div class="flex flex-col">
-                            <span class="text-[10px] text-zinc-400 font-medium tracking-wider uppercase share-avg-speed-label">Avg Speed</span>
-                            <div class="flex items-baseline gap-0.5">
-                                <span class="text-xl font-black font-display tracking-tight" id="share-avg">0</span>
-                                <span class="text-[9px] font-semibold text-zinc-400">km/h</span>
+                    <!-- Row 2: Avg Speed + Total Time -->
+                    <div class="share-stat-grid-2">
+                        <div class="share-stat-block share-avg-block">
+                            <div class="share-stat-lbl">Avg Speed</div>
+                            <div class="share-stat-val accent" id="share-avg">0</div>
+                            <div class="share-stat-sub">km/h</div>
+                            <!-- Speed fluctuation mini chart -->
+                            <div class="share-mini-chart">
+                                <svg viewBox="0 0 100 18" fill="none">
+                                    <path id="share-speed-chart-path" d="M0,14 L12,11 L22,15 L35,3 L45,12 L55,2 L70,10 L82,1 L92,8 L100,5" stroke="#BDFF00" stroke-width="1" fill="none" opacity="0.7"/>
+                                </svg>
                             </div>
+                            <span class="share-stat-sub-accent" id="share-topspeed-label">Top Speed: -- km/h</span>
                         </div>
-                        <div class="flex flex-col items-center">
-                            <span class="text-[10px] text-zinc-400 font-medium tracking-wider uppercase">Top Speed</span>
-                            <span class="text-2xl font-black font-display tracking-tight text-brand share-top-speed-value" id="share-top">0</span>
-                            <span class="text-[9px] text-zinc-500">km/h</span>
-                        </div>
-                        <div class="flex flex-col items-end">
-                            <span class="text-[10px] text-zinc-400 font-medium tracking-wider uppercase">Total Time</span>
-                            <span class="text-xl font-black font-display tracking-tight" id="share-time">00:00</span>
-                            <span class="text-[9px] text-zinc-500 share-lean-angle" id="share-lean">Lean: --</span>
+                        <div class="share-stat-block right">
+                            <div class="share-stat-lbl">Total Time</div>
+                            <div class="share-stat-val" id="share-time">00:00</div>
+                            <div class="share-stat-sub" id="share-lean-label">Lean Angle Avg: --°</div>
                         </div>
                     </div>
 
-                    <div class="flex flex-col gap-1.5 share-histogram">
-                        <div class="flex justify-between items-center">
-                            <span class="text-[9px] text-zinc-400 font-semibold tracking-wider uppercase">Pace (Per KM)</span>
-                            <span class="text-[9px] text-brand font-bold share-rpm-peak">Peak: --</span>
+                    <!-- Histogram - Consistency Intervals -->
+                    <div class="share-histogram">
+                        <div class="share-histogram-header">
+                            <span class="share-histogram-lbl">Consistency Intervals (per segmen)</span>
+                            <span id="share-rpm-peak">Peak: --</span>
                         </div>
-                        <div id="share-histogram-bars" class="flex items-end justify-between gap-1 h-7"></div>
+                        <div id="share-histogram-bars"></div>
                     </div>
 
-                    <div id="share-notes-row" class="hidden">
-                        <span class="text-[9px] text-zinc-500 uppercase tracking-wider">Catatan</span>
-                        <p class="text-xs text-zinc-300 mt-0.5" id="share-notes">-</p>
+                    <!-- Notes -->
+                    <div id="share-notes-row">
+                        <div class="share-notes-lbl">Catatan</div>
+                        <div id="share-notes">-</div>
                     </div>
 
-                    <div class="text-center mt-1">
-                        <span class="text-[9px] text-zinc-600 font-semibold tracking-wider">cekMotormu.id</span>
-                    </div>
+                    <div class="share-footer">cekMotormu.id</div>
                 </div>
-            </div>
-        </div>
 
-        <div class="flex-none bg-[#121212] border-t border-zinc-800 px-4 py-4 flex flex-col gap-3">
-            <div class="flex gap-2 justify-center">
-                <button onclick="setShareStyle('standard')" class="style-btn text-[10px] font-bold px-4 py-2 rounded-full border border-zinc-700 text-zinc-300 active:scale-95 transition" data-style="standard">Standard</button>
-                <button onclick="setShareStyle('minimal')" class="style-btn text-[10px] font-bold px-4 py-2 rounded-full border border-zinc-700 text-zinc-300 active:scale-95 transition" data-style="minimal">Minimalist</button>
-                <button onclick="setShareStyle('stats')" class="style-btn text-[10px] font-bold px-4 py-2 rounded-full border border-zinc-700 text-zinc-300 active:scale-95 transition" data-style="stats">Stats Focus</button>
+                </div><!-- /share-card-inner -->
             </div>
-            <div class="flex gap-2 justify-center">
-                <label class="flex items-center gap-2 bg-zinc-900 px-4 py-2 rounded-full border border-dashed border-zinc-700 text-[10px] font-semibold text-zinc-300 cursor-pointer">
-                    <i data-lucide="image" class="w-3.5 h-3.5 text-brand"></i>
+        </div><!-- /share-card-wrapper -->
+
+        <!-- Footer controls -->
+        <div class="share-footer-controls">
+            <div class="style-chips">
+                <button class="style-chip active" onclick="setShareStyle('standard')" data-style="standard">Standard</button>
+                <button class="style-chip" onclick="setShareStyle('minimal')" data-style="minimal">Minimal</button>
+                <button class="style-chip" onclick="setShareStyle('stats')" data-style="stats">Stats Focus</button>
+            </div>
+            <div class="share-bg-row">
+                <label class="share-bg-btn">
+                    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2.5"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
                     Ganti Background
                     <input type="file" id="share-bg-input" accept="image/*" class="hidden">
                 </label>
-                <button onclick="resetShareBg()" class="text-[10px] font-semibold px-4 py-2 rounded-full bg-zinc-900 text-zinc-400 border border-zinc-800 active:scale-95 transition">Reset</button>
+                <button class="share-bg-btn reset" onclick="resetShareBg()">Reset</button>
             </div>
-            <button id="btn-save-local" class="w-full text-xs font-bold py-3 rounded-xl bg-zinc-800 text-white active:scale-95 transition">Simpan ke Riwayat</button>
+            <button id="btn-save-local">💾 Simpan ke Riwayat Lokal</button>
         </div>
-    </div>
+    </div><!-- /share-preview -->
+
 
     <script>
-        // === STATE ===
+        /* ═══════════════════════════════════════════════
+           STATE
+        ═══════════════════════════════════════════════ */
         let currentMode = 'speed';
-        let isTracking = false;
-        let isPaused = false;
-        let isFinished = false;
-        let is3dMode = false;
+        let isTracking  = false;
+        let isPaused    = false;
+        let isFinished  = false;
+        let is3dMode    = false;
+        let isTouringSheetOpen = false;
+
         let map, routeLine, currentMarker = null, watchId = null;
         let coordinates = [];
-        let wakeLock = null;
-        let startTime = null;
-        let pauseStart = null;
+        let wakeLock    = null;
+        let startTime   = null;
+        let pauseStart  = null;
         let pausedDuration = 0;
-        let timerInterval = null;
-        let totalDistance = 0;
-        let topSpeed = 0;
-        let speeds = [];
+        let timerInterval  = null;
+        let totalDistance  = 0;
+        let topSpeed       = 0;
+        let speeds         = [];
         let currentTrackId = null;
-        let socket = null;
-        let shareStyle = 'standard';
-        let followUser = false;
+        let socket         = null;
+        let shareStyle     = 'standard';
+        let followUser     = false;
 
-        const canvas = document.getElementById('route-canvas');
-        const ctx = canvas.getContext('2d');
-        const customBg = document.getElementById('custom-bg');
+        const canvas    = document.getElementById('route-canvas');
+        const ctx       = canvas.getContext('2d');
+        const customBg  = document.getElementById('custom-bg');
 
-        // === BACKEND ===
+        /* ── Arc arc constants ──
+           Arc path from (20,95) to (170,95) radius=75, total arc length ≈ 236px
+        */
+        const ARC_LEN   = 236;
+        const ARC_MAX   = 200; // km/h max on gauge
+
+        /* ═══════════════════════════════════════════════
+           HELPERS
+        ═══════════════════════════════════════════════ */
+        function $(id) { return document.getElementById(id); }
+
+        function formatTime(sec) {
+            const h = Math.floor(sec / 3600);
+            const m = Math.floor((sec % 3600) / 60);
+            const s = Math.floor(sec % 60);
+            return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+        }
+
+        function showToast(msg, duration) {
+            const el = $('toast');
+            el.textContent = msg;
+            el.classList.add('show');
+            clearTimeout(el._t);
+            el._t = setTimeout(() => el.classList.remove('show'), duration || 2200);
+        }
+
+        function setGpsStatus(state) {
+            const dot = $('gps-dot');
+            const lbl = $('gps-label');
+            dot.className = 'gps-dot';
+            if (state === 'active') { dot.classList.add('active'); lbl.textContent = 'GPS'; }
+            else if (state === 'recording') { dot.classList.add('recording'); lbl.textContent = 'REC'; }
+            else { lbl.textContent = 'GPS'; }
+        }
+
+        function updateSpeedArc(speedKmh) {
+            const pct = Math.min(speedKmh / ARC_MAX, 1);
+            const offset = ARC_LEN - pct * ARC_LEN;
+            const fill = $('arc-fill');
+            if (fill) fill.setAttribute('stroke-dashoffset', offset.toFixed(1));
+            const statEl = $('stat-speed');
+            if (speedKmh > 60) statEl.classList.add('speeding');
+            else statEl.classList.remove('speeding');
+        }
+
+        /* ═══════════════════════════════════════════════
+           BACKEND
+        ═══════════════════════════════════════════════ */
         async function connectBackend() {
             try {
                 socket = io(WS_URL);
-                socket.on('connect', () => console.log('[WS] Connected'));
+                socket.on('connect', () => { console.log('[WS] Connected'); setGpsStatus('active'); });
                 socket.on('track:error', (err) => showToast('Server error: ' + err.message));
-            } catch (e) {
-                console.warn('[WS] Backend offline mode');
-            }
+            } catch (e) { console.warn('[WS] Backend offline mode'); }
         }
 
         async function createTrack() {
@@ -332,8 +1238,8 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        name: document.getElementById('in-track').value || 'Untitled',
-                        motor: document.getElementById('in-motor').value || '',
+                        name:  ($('in-track') && $('in-track').value) || 'Untitled',
+                        motor: ($('in-motor') && $('in-motor').value) || '',
                     }),
                 });
                 const track = await res.json();
@@ -345,36 +1251,18 @@
         }
 
         function sendPoint(lat, lng, speedKmh) {
-            if (currentTrackId && socket?.connected) {
+            if (currentTrackId && socket?.connected)
                 socket.emit('track:point', { trackId: currentTrackId, lat, lng, speed: speedKmh });
-            }
         }
 
         function sendStatus(status) {
-            if (currentTrackId && socket?.connected) {
+            if (currentTrackId && socket?.connected)
                 socket.emit('track:status', { trackId: currentTrackId, status });
-            }
         }
 
-        // === HELPERS ===
-        function $(id) { return document.getElementById(id); }
-
-        function formatTime(sec) {
-            const h = Math.floor(sec / 3600);
-            const m = Math.floor((sec % 3600) / 60);
-            const s = Math.floor(sec % 60);
-            return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-        }
-
-        function showToast(msg, duration) {
-            const el = $('toast');
-            el.textContent = msg;
-            el.classList.add('show');
-            clearTimeout(el._t);
-            el._t = setTimeout(() => el.classList.remove('show'), duration || 2000);
-        }
-
-        // === INIT ===
+        /* ═══════════════════════════════════════════════
+           INIT
+        ═══════════════════════════════════════════════ */
         window.addEventListener('DOMContentLoaded', () => {
             lucide.createIcons();
             initMap();
@@ -385,111 +1273,133 @@
             showCurrentLocation();
         });
 
+        function initMap() {
+            map = L.map('map', { zoomControl: false }).setView([-8.6413, 115.1683], 14);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 20 }).addTo(map);
+            routeLine = L.polyline([], {
+                color: '#BDFF00', weight: 5, opacity: 0.9, lineJoin: 'round', lineCap: 'round'
+            }).addTo(map);
+            map.on('move', () => { if (!customBg.classList.contains('hidden')) drawCanvasRoute(); });
+            map.on('dragstart', () => { followUser = false; });
+        }
+
         function updateLocationMarker(latlng) {
             if (currentMarker) {
                 currentMarker.setLatLng(latlng);
             } else {
                 currentMarker = L.circleMarker(latlng, {
-                    radius: 8,
-                    color: '#CCFF00',
-                    fillColor: '#fff',
-                    fillOpacity: 1,
-                    weight: 3,
-                    opacity: 0.9,
+                    radius: 9, color: '#BDFF00', fillColor: '#fff',
+                    fillOpacity: 1, weight: 3, opacity: 1,
                 }).addTo(map);
             }
         }
 
         function showCurrentLocation() {
-            if ("geolocation" in navigator) {
-                navigator.geolocation.getCurrentPosition(
-                    (pos) => {
-                        const loc = [pos.coords.latitude, pos.coords.longitude];
-                        updateLocationMarker(loc);
-                        map.setView(loc, 14);
-                    },
-                    () => {},
-                    { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
-                );
-            }
+            if (!('geolocation' in navigator)) return;
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    const loc = [pos.coords.latitude, pos.coords.longitude];
+                    updateLocationMarker(loc);
+                    map.setView(loc, 14);
+                    setGpsStatus('active');
+                },
+                () => {},
+                { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+            );
         }
 
-        function initMap() {
-            map = L.map('map', { zoomControl: false }).setView([-8.6413, 115.1683], 14);
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 20 }).addTo(map);
-            routeLine = L.polyline([], { color: '#CCFF00', weight: 5, opacity: 0.9, lineJoin: 'round', lineCap: 'round' }).addTo(map);
-            map.on('move', () => {
-                if (!customBg.classList.contains('hidden')) drawCanvasRoute();
-            });
-            map.on('dragstart', () => { followUser = false; });
-        }
-
-        // === WAKE LOCK ===
+        /* ═══════════════════════════════════════════════
+           WAKE LOCK
+        ═══════════════════════════════════════════════ */
         async function requestWakeLock() {
-            try {
-                if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen');
-            } catch (err) { }
+            try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } catch(e) {}
         }
-
         function releaseWakeLock() {
-            if (wakeLock !== null) { wakeLock.release(); wakeLock = null; }
+            if (wakeLock) { wakeLock.release(); wakeLock = null; }
         }
 
-        // === MODE ===
+        /* ═══════════════════════════════════════════════
+           MODE SWITCH
+        ═══════════════════════════════════════════════ */
         function switchMode(mode) {
             currentMode = mode;
-            const btnSpeed = $('btn-mode-speed');
-            const btnTouring = $('btn-mode-touring');
-            const touringInputs = $('touring-inputs');
-            const mapContainer = $('map-container');
+            const slider      = $('mode-slider');
+            const btnSpeed    = $('btn-mode-speed');
+            const btnTouring  = $('btn-mode-touring');
+            const handle      = $('touring-handle');
 
             if (mode === 'speed') {
-                btnSpeed.className = "px-3 py-1 rounded-full text-[10px] font-black tracking-wider bg-brand text-black shadow";
-                btnTouring.className = "px-3 py-1 rounded-full text-[10px] font-black tracking-wider text-zinc-400";
-                touringInputs.classList.add('hidden');
-                mapContainer.classList.remove('opacity-60');
+                slider.classList.remove('touring');
+                btnSpeed.classList.add('active');
+                btnTouring.classList.remove('active');
+                handle.style.display = 'none';
+                // Close sheet if open
+                if (isTouringSheetOpen) toggleTouringSheet();
             } else {
-                btnTouring.className = "px-3 py-1 rounded-full text-[10px] font-black tracking-wider bg-brand text-black shadow";
-                btnSpeed.className = "px-3 py-1 rounded-full text-[10px] font-black tracking-wider text-zinc-400";
-                touringInputs.classList.remove('hidden');
-                mapContainer.classList.remove('opacity-60');
+                slider.classList.add('touring');
+                btnTouring.classList.add('active');
+                btnSpeed.classList.remove('active');
+                handle.style.display = 'flex';
                 setTimeout(() => map.invalidateSize(), 200);
             }
         }
 
-        // === INPUT LISTENERS ===
+        /* ═══════════════════════════════════════════════
+           TOURING SHEET
+        ═══════════════════════════════════════════════ */
+        function toggleTouringSheet() {
+            isTouringSheetOpen = !isTouringSheetOpen;
+            const sheet = $('touring-sheet');
+            if (isTouringSheetOpen) sheet.classList.add('open');
+            else sheet.classList.remove('open');
+        }
+
+        /* ═══════════════════════════════════════════════
+           NAV
+        ═══════════════════════════════════════════════ */
+        function navClick(id) {
+            // Reset all
+            ['bn-peta','bn-statistik','bn-riwayat','bn-share'].forEach(n => {
+                const el = $(n);
+                if (el) el.classList.remove('active');
+            });
+            const el = $('bn-' + id);
+            if (el) el.classList.add('active');
+            if (id === 'peta') return;
+            if (id === 'share') { openShare(); return; }
+            showToast(id.charAt(0).toUpperCase() + id.slice(1) + ' – segera hadir');
+        }
+
+        /* ═══════════════════════════════════════════════
+           INPUT LISTENERS
+        ═══════════════════════════════════════════════ */
         function setupInputListeners() {
-            $('in-track').addEventListener('input', (e) => {
-                $('lbl-track').innerText = e.target.value.toUpperCase() || "RUTE AKTIF";
-            });
-            $('in-motor').addEventListener('input', (e) => {
-                $('lbl-motor').innerText = e.target.value || "-";
-            });
-            $('file-bg').addEventListener('change', function (e) {
-                const file = e.target.files[0];
-                if (file) {
+            const fileBg = $('file-bg');
+            if (fileBg) {
+                fileBg.addEventListener('change', function(e) {
+                    const file = e.target.files[0];
+                    if (!file) return;
                     const reader = new FileReader();
-                    reader.onload = function (event) {
-                        customBg.src = event.target.result;
+                    reader.onload = (ev) => {
+                        customBg.src = ev.target.result;
                         customBg.classList.remove('hidden');
                         $('map').style.opacity = '0.05';
                         canvas.classList.remove('hidden');
-                        $('bg-status').innerText = "BG Aktif";
-                        resizeCanvas();
-                        drawCanvasRoute();
+                        $('bg-status').textContent = '✓ Foto Terpasang';
+                        resizeCanvas(); drawCanvasRoute();
                     };
                     reader.readAsDataURL(file);
-                }
-            });
+                });
+            }
         }
 
-        // === TRACKING ===
+        /* ═══════════════════════════════════════════════
+           TRACKING
+        ═══════════════════════════════════════════════ */
         function toggleTracking() {
-            if (isFinished) {
-                resetForNewTrack();
-            }
+            if (isFinished) resetForNewTrack();
             if (!isTracking) {
-                if (!("geolocation" in navigator)) return alert("GPS tidak didukung.");
+                if (!('geolocation' in navigator)) return alert('GPS tidak didukung.');
                 startTracking();
             } else {
                 pauseTracking();
@@ -497,149 +1407,159 @@
         }
 
         function startTracking() {
-            isTracking = true;
-            isPaused = false;
+            isTracking = true; isPaused = false;
             createTrack();
 
+            // btn-record
             const btn = $('btn-record');
-            btn.classList.remove('bg-brand', 'shadow-[0_0_20px_rgba(204,255,0,0.15)]');
-            btn.classList.add('bg-zinc-800', 'shadow-[0_0_20px_rgba(239,68,68,0.3)]', 'animate-pulse', 'border-red-500');
-            $('icon-play').classList.add('hidden');
-            $('icon-pause').classList.remove('hidden');
+            btn.classList.add('recording');
+            $('icon-play').style.display  = 'none';
+            $('icon-pause').style.display = '';
+            $('record-label').textContent = 'STOP';
 
-            followUser = true;
-            startTime = Date.now();
+            // ride controls
+            $('ride-controls').classList.add('visible');
+
+            setGpsStatus('recording');
+            followUser     = true;
+            startTime      = Date.now();
             pausedDuration = 0;
-            pauseStart = null;
-            timerInterval = setInterval(updateTimer, 1000);
+            pauseStart     = null;
+            timerInterval  = setInterval(updateTimer, 1000);
             requestWakeLock();
             sendStatus('tracking');
 
             watchId = navigator.geolocation.watchPosition(
                 onPosition,
-                (err) => console.warn("Mencari Sinyal GPS..."),
+                (err) => console.warn('Mencari sinyal GPS...'),
                 { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
             );
-            showToast('Tracking started');
+            showToast('🚀 Tracking dimulai');
         }
 
         function pauseTracking() {
             isPaused = !isPaused;
+            const pauseIcon  = $('icon-pause-inner');
+            const playIcon   = $('icon-play-inner');
+            const pauseLabel = $('pause-btn-label');
             if (isPaused) {
                 pauseStart = Date.now();
-                $('icon-play').classList.remove('hidden');
-                $('icon-pause').classList.add('hidden');
+                pauseIcon.style.display  = 'none';
+                playIcon.style.display   = '';
+                if (pauseLabel) pauseLabel.textContent = 'LANJUT';
                 sendStatus('paused');
-                showToast('Paused');
+                showToast('⏸ Tracking dijeda');
             } else {
-                if (pauseStart) {
-                    pausedDuration += Date.now() - pauseStart;
-                    pauseStart = null;
-                }
-                $('icon-play').classList.add('hidden');
-                $('icon-pause').classList.remove('hidden');
+                if (pauseStart) { pausedDuration += Date.now() - pauseStart; pauseStart = null; }
+                pauseIcon.style.display  = '';
+                playIcon.style.display   = 'none';
+                if (pauseLabel) pauseLabel.textContent = 'JEDA';
                 sendStatus('tracking');
-                showToast('Resumed');
+                showToast('▶ Dilanjutkan');
             }
         }
 
         function finishTracking() {
             if (!isTracking && !isPaused) return;
-            isTracking = false;
-            isPaused = false;
-            isFinished = true;
+            isTracking = false; isPaused = false; isFinished = true;
             clearInterval(timerInterval);
             if (watchId) navigator.geolocation.clearWatch(watchId);
             releaseWakeLock();
             sendStatus('finished');
 
             const btn = $('btn-record');
-            btn.classList.remove('bg-zinc-800', 'shadow-[0_0_20px_rgba(239,68,68,0.3)]', 'animate-pulse', 'border-red-500');
-            btn.classList.add('bg-brand', 'shadow-[0_0_20px_rgba(204,255,0,0.15)]');
-            $('icon-play').classList.remove('hidden');
-            $('icon-pause').classList.add('hidden');
+            btn.classList.remove('recording');
+            $('icon-play').style.display  = '';
+            $('icon-pause').style.display = 'none';
+            $('record-label').textContent = 'MULAI';
+            $('ride-controls').classList.remove('visible');
 
+            setGpsStatus('active');
+            updateSpeedArc(0);
             showResult();
-            showToast('Tour finished!');
+            showToast('🏁 Touring selesai!');
         }
 
         function resetForNewTrack() {
-            isFinished = false;
-            isTracking = false;
-            isPaused = false;
-            coordinates = [];
-            speeds = [];
-            totalDistance = 0;
-            topSpeed = 0;
-            currentTrackId = null;
+            isFinished = false; isTracking = false; isPaused = false;
+            coordinates = []; speeds = [];
+            totalDistance = 0; topSpeed = 0; currentTrackId = null;
             routeLine.setLatLngs([]);
             if (currentMarker) { map.removeLayer(currentMarker); currentMarker = null; }
-            $('stat-time').innerText = '00:00';
-            $('stat-speed').innerText = '0';
-            $('stat-topspeed').innerHTML = '0 <span class="text-[7px] font-normal text-zinc-400">km/h</span>';
-            $('stat-distance').innerHTML = '0.0 <span class="text-[7px] font-normal text-zinc-400">km</span>';
+            $('stat-time').textContent     = '00:00';
+            $('stat-speed').textContent    = '0';
+            $('stat-topspeed').textContent = '0';
+            $('stat-distance').textContent = '0.00';
+            updateSpeedArc(0);
+            $('ride-controls').classList.remove('visible');
+            $('btn-record').classList.remove('recording');
         }
 
-        function onPosition(position) {
-            const { latitude, longitude, speed } = position.coords;
-            const currentLoc = [latitude, longitude];
-            const currentSpeedKmH = speed && speed > 0 ? Math.round(speed * 3.6) : 0;
+        function onPosition(pos) {
+            const { latitude, longitude, speed } = pos.coords;
+            const loc = [latitude, longitude];
+            const speedKmh = speed && speed > 0 ? Math.round(speed * 3.6) : 0;
 
-            $('stat-speed').innerText = currentSpeedKmH;
-            if (currentSpeedKmH > topSpeed) {
-                topSpeed = currentSpeedKmH;
-                $('stat-topspeed').innerHTML = `${topSpeed} <span class="text-[7px] font-normal text-zinc-400">km/h</span>`;
+            $('stat-speed').textContent = speedKmh;
+            updateSpeedArc(speedKmh);
+
+            if (speedKmh > topSpeed) {
+                topSpeed = speedKmh;
+                $('stat-topspeed').textContent = topSpeed;
             }
 
             if (coordinates.length > 0) {
-                const lastLoc = coordinates[coordinates.length - 1];
-                const stepDistance = calculateHaversine(lastLoc[0], lastLoc[1], latitude, longitude);
-                if (stepDistance > 0.003) {
-                    totalDistance += stepDistance;
-                    $('stat-distance').innerHTML = `${totalDistance.toFixed(2)} <span class="text-[9px] font-normal text-zinc-400">km</span>`;
+                const last = coordinates[coordinates.length - 1];
+                const dist = calculateHaversine(last[0], last[1], latitude, longitude);
+                if (dist > 0.003) {
+                    totalDistance += dist;
+                    $('stat-distance').textContent = totalDistance.toFixed(2);
                 }
             }
 
-            coordinates.push(currentLoc);
-            speeds.push(currentSpeedKmH);
-            routeLine.setLatLngs(coordinates);
-
-            updateLocationMarker(currentLoc);
-
-            if (followUser) {
-                map.setView(currentLoc, is3dMode ? 18 : 15);
+            if (!isPaused) {
+                coordinates.push(loc);
+                speeds.push(speedKmh);
             }
+            routeLine.setLatLngs(coordinates);
+            updateLocationMarker(loc);
 
-            sendPoint(latitude, longitude, currentSpeedKmH);
+            if (followUser) map.setView(loc, is3dMode ? 18 : 15);
+
+            sendPoint(latitude, longitude, speedKmh);
             if (!customBg.classList.contains('hidden')) drawCanvasRoute();
         }
 
         function updateTimer() {
             if (!startTime) return;
             let elapsed = Date.now() - startTime;
-            if (pauseStart) elapsed -= Date.now() - pauseStart;
+            if (pauseStart)        elapsed -= Date.now() - pauseStart;
             if (pausedDuration > 0) elapsed -= pausedDuration;
             const totalSecs = Math.max(0, Math.floor(elapsed / 1000));
-            const mins = Math.floor(totalSecs / 60).toString().padStart(2, '0');
-            const secs = (totalSecs % 60).toString().padStart(2, '0');
-            $('stat-time').innerText = `${mins}:${secs}`;
+            const h = Math.floor(totalSecs / 3600);
+            const m = Math.floor((totalSecs % 3600) / 60);
+            const s = totalSecs % 60;
+            $('stat-time').textContent = h > 0
+                ? `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
+                : `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
         }
 
         function calculateHaversine(lat1, lon1, lat2, lon2) {
             const R = 6371;
             const dLat = (lat2 - lat1) * Math.PI / 180;
             const dLon = (lon2 - lon1) * Math.PI / 180;
-            const a = Math.sin(dLat / 2) ** 2 +
-                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                Math.sin(dLon / 2) ** 2;
-            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            const a = Math.sin(dLat/2)**2 +
+                Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLon/2)**2;
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
         }
 
-        // === CANVAS ===
+        /* ═══════════════════════════════════════════════
+           CANVAS ROUTE OVERLAY
+        ═══════════════════════════════════════════════ */
         function resizeCanvas() {
-            const parent = canvas.parentElement;
-            canvas.width = parent.clientWidth;
-            canvas.height = parent.clientHeight;
+            const p = canvas.parentElement;
+            canvas.width  = p.clientWidth;
+            canvas.height = p.clientHeight;
             if (!customBg.classList.contains('hidden')) drawCanvasRoute();
         }
         window.addEventListener('resize', resizeCanvas);
@@ -648,278 +1568,339 @@
             if (coordinates.length < 2) return;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             ctx.beginPath();
-            ctx.strokeStyle = '#CCFF00';
-            ctx.lineWidth = 5;
-            ctx.lineCap = 'round';
-            ctx.lineJoin = 'round';
-            coordinates.forEach((coord, i) => {
-                const p = map.latLngToContainerPoint(new L.LatLng(coord[0], coord[1]));
-                if (i === 0) ctx.moveTo(p.x, p.y);
-                else ctx.lineTo(p.x, p.y);
+            ctx.strokeStyle = '#BDFF00';
+            ctx.lineWidth   = 5;
+            ctx.lineCap     = 'round';
+            ctx.lineJoin    = 'round';
+            ctx.shadowColor = '#BDFF00';
+            ctx.shadowBlur  = 12;
+            coordinates.forEach((c, i) => {
+                const p = map.latLngToContainerPoint(new L.LatLng(c[0], c[1]));
+                i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y);
             });
             ctx.stroke();
         }
 
-        // === MAP CONTROLS ===
+        /* ═══════════════════════════════════════════════
+           MAP CONTROLS
+        ═══════════════════════════════════════════════ */
         function recenterMap() {
             followUser = true;
-            if (coordinates.length > 0) map.setView(coordinates[coordinates.length - 1], is3dMode ? 18 : 15);
-            else navigator.geolocation.getCurrentPosition(p => map.setView([p.coords.latitude, p.coords.longitude], 15));
+            if (coordinates.length > 0)
+                map.setView(coordinates[coordinates.length-1], is3dMode ? 18 : 15);
+            else
+                navigator.geolocation.getCurrentPosition(p =>
+                    map.setView([p.coords.latitude, p.coords.longitude], 15));
+            showToast('Peta digeser ke lokasi Anda');
         }
 
         function toggle3D() {
             is3dMode = !is3dMode;
             const btn = $('btn-3d');
             if (is3dMode) {
-                btn.classList.add('bg-brand', 'text-black');
+                btn.classList.add('active');
                 map.setZoom(18);
+                showToast('3D mode aktif');
             } else {
-                btn.classList.remove('bg-brand', 'text-black');
+                btn.classList.remove('active');
                 map.setZoom(15);
+                showToast('3D mode nonaktif');
             }
         }
 
-        // === SHARE PREVIEW ===
+        /* ═══════════════════════════════════════════════
+           SHARE / RESULT
+        ═══════════════════════════════════════════════ */
         function getElapsedSeconds() {
             if (!startTime) return 0;
-            let elapsed = Date.now() - startTime;
-            if (pauseStart) elapsed -= Date.now() - pauseStart;
-            if (pausedDuration > 0) elapsed -= pausedDuration;
-            return Math.max(0, Math.floor(elapsed / 1000));
+            let el = Date.now() - startTime;
+            if (pauseStart)        el -= Date.now() - pauseStart;
+            if (pausedDuration > 0) el -= pausedDuration;
+            return Math.max(0, Math.floor(el / 1000));
         }
 
         function getAvgSpeed() {
-            return speeds.length > 0
-                ? (speeds.reduce((a, b) => a + b, 0) / speeds.length)
-                : 0;
+            return speeds.length > 0 ? speeds.reduce((a,b) => a+b, 0) / speeds.length : 0;
         }
 
         function generateRouteSvgPath() {
             if (coordinates.length < 2) return '';
-            const lats = coordinates.map(p => p[0]);
-            const lngs = coordinates.map(p => p[1]);
+            const lats = coordinates.map(p=>p[0]);
+            const lngs = coordinates.map(p=>p[1]);
             const minLat = Math.min(...lats), maxLat = Math.max(...lats);
             const minLng = Math.min(...lngs), maxLng = Math.max(...lngs);
-            const rangeLat = (maxLat - minLat) || 0.001;
-            const rangeLng = (maxLng - minLng) || 0.001;
-            const pad = 0.1;
-            const W = 200, H = 200;
-
-            return coordinates.map((coord, i) => {
-                const x = ((coord[1] - minLng) / (rangeLng + pad)) * W;
-                const y = H - ((coord[0] - minLat) / (rangeLat + pad)) * H;
-                return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`;
+            const rLat = (maxLat-minLat) || 0.001;
+            const rLng = (maxLng-minLng) || 0.001;
+            const pad = 0.15; const W = 200, H = 160;
+            return coordinates.map((c, i) => {
+                const x = ((c[1]-minLng) / (rLng*(1+pad))) * W * 0.85 + W*0.075;
+                const y = H - ((c[0]-minLat) / (rLat*(1+pad))) * H * 0.85 - H*0.075;
+                return `${i===0?'M':'L'}${x.toFixed(1)},${y.toFixed(1)}`;
             }).join(' ');
         }
 
-        function generateRouteSvgPoints() {
-            if (coordinates.length < 1) return { sx: 0, sy: 0 };
-            const lats = coordinates.map(p => p[0]);
-            const lngs = coordinates.map(p => p[1]);
+        function generateStartPoint() {
+            if (coordinates.length < 1) return {sx:30, sy:120};
+            const lats = coordinates.map(p=>p[0]);
+            const lngs = coordinates.map(p=>p[1]);
             const minLat = Math.min(...lats), maxLat = Math.max(...lats);
             const minLng = Math.min(...lngs), maxLng = Math.max(...lngs);
-            const rangeLat = (maxLat - minLat) || 0.001;
-            const rangeLng = (maxLng - minLng) || 0.001;
-            const pad = 0.1;
-            const W = 200, H = 200;
+            const rLat = (maxLat-minLat)||0.001; const rLng = (maxLng-minLng)||0.001;
+            const pad = 0.15; const W = 200, H = 160;
             const first = coordinates[0];
             return {
-                sx: ((first[1] - minLng) / (rangeLng + pad)) * W,
-                sy: H - ((first[0] - minLat) / (rangeLat + pad)) * H,
+                sx: ((first[1]-minLng)/(rLng*(1+pad)))*W*0.85 + W*0.075,
+                sy: H-((first[0]-minLat)/(rLat*(1+pad)))*H*0.85 - H*0.075,
             };
         }
 
         function showResult() {
-            // Guard: bail if share-preview not in DOM
             const preview = $('share-preview');
             if (!preview) return;
 
-            const avgSpeed = getAvgSpeed();
-            const elapsed = getElapsedSeconds();
-            const trackName = $('in-track').value || 'Rute Aktif';
-            const motorName = $('in-motor').value || '-';
-            const notes = $('in-notes').value;
-            const odometer = $('in-odometer').value;
+            // Set default moto background if none set
+            const card = $('share-card');
+            if (!card.style.backgroundImage || card.style.backgroundImage === 'none' || card.style.backgroundImage === '') {
+                card.style.backgroundImage = "url('https://images.unsplash.com/photo-1568772585407-9361f9bf3a87?q=80&w=1000')";
+                card.style.backgroundSize = 'cover';
+                card.style.backgroundPosition = 'center';
+            }
 
-            const setText = (id, val) => { const el = $(id); if (el) el.textContent = val; };
-            const setAttr = (id, attr, val) => { const el = $(id); if (el) el.setAttribute(attr, val); };
+            const avgSpeed  = getAvgSpeed();
+            const elapsed   = getElapsedSeconds();
+            const trackName = ($('in-track')?.value) || 'Rute Aktif';
+            const motorName = ($('in-motor')?.value) || '-';
+            const notes     = ($('in-notes')?.value) || '';
+            const odometer  = ($('in-odometer')?.value) || '';
+            const avgLean   = Math.min(45, Math.round(avgSpeed * 0.3));
 
-            // Populate card (with null safety)
-            setText('share-title', trackName.toUpperCase());
-            setText('share-motor-label', motorName);
-            setText('share-dist', totalDistance.toFixed(2));
-            setText('share-time', formatTime(elapsed).slice(0, 5));
-            setText('share-avg', avgSpeed.toFixed(1));
-            setText('share-top', String(topSpeed));
-            setText('share-elevation', odometer ? odometer + ' km' : '0 hm');
-            setText('share-lean', `Lean: ${Math.min(45, Math.round(avgSpeed * 0.3))}°`);
+            // Simulated elevation (from distance + varied terrain)
+            const estElevation = Math.round(totalDistance * 7 + Math.random() * 50);
+
+            const set = (id, val) => { const el=$(id); if(el) el.textContent=val; };
+            const setAttr = (id, a, v) => { const el=$(id); if(el) el.setAttribute(a,v); };
+
+            set('share-title', trackName.toUpperCase());
+            set('share-stage', 'Stage ' + String(Math.floor(Math.random() * 5) + 1).padStart(2, '0'));
+            const mLabel = $('share-motor-label');
+            if (mLabel) mLabel.querySelector('span').textContent = motorName;
+            set('share-dist', totalDistance.toFixed(2));
+            set('share-elevation', String(estElevation));
+            set('share-time', formatTime(elapsed).slice(0,5));
+            set('share-avg',  avgSpeed.toFixed(1));
+            set('share-topspeed-label', `Top Speed: ${topSpeed} km/h`);
+            set('share-lean-label', `Lean Angle Avg: ${avgLean}°`);
+
+            // Mini elevation chart - generate smooth curve based on distance
+            const elevPath = $('share-elevation-path');
+            if (elevPath) {
+                const pts = 6;
+                let d = '';
+                for (let i = 0; i <= pts; i++) {
+                    const x = (i / pts) * 100;
+                    const base = 14 - (i / pts) * 8;
+                    const noise = Math.sin(i * 1.5) * 4 + Math.random() * 2;
+                    const y = Math.max(1, Math.min(17, base + noise));
+                    d += (i === 0 ? 'M' : ' L') + x.toFixed(0) + ',' + y.toFixed(1);
+                }
+                elevPath.setAttribute('d', d);
+            }
+
+            // Mini speed chart - generate spike pattern
+            const speedPath = $('share-speed-chart-path');
+            if (speedPath && speeds.length > 0) {
+                const pts = Math.min(10, speeds.length);
+                let d = '';
+                for (let i = 0; i <= pts; i++) {
+                    const x = (i / pts) * 100;
+                    const idx = Math.floor((i / pts) * speeds.length);
+                    const s = speeds[Math.min(idx, speeds.length - 1)] || 0;
+                    const maxS = Math.max(...speeds, 1);
+                    const y = 18 - (s / maxS) * 15;
+                    d += (i === 0 ? 'M' : ' L') + x.toFixed(0) + ',' + y.toFixed(1);
+                }
+                speedPath.setAttribute('d', d);
+            }
 
             // Route SVG
             const pathD = generateRouteSvgPath();
-            setAttr('share-route-path', 'd', pathD || 'M30,140 L50,110 L45,80 L75,60');
-            const pts = generateRouteSvgPoints();
+            setAttr('share-route-path', 'd', pathD || 'M30,140 L60,100 L90,80 L130,55 L160,40 L185,80 L150,110 L110,85 L70,130 L30,140');
+            const pts = generateStartPoint();
             if (coordinates.length > 0) {
-                setAttr('share-start-dot', 'cx', pts.sx);
-                setAttr('share-start-dot', 'cy', pts.sy);
+                setAttr('share-start-dot',   'cx', pts.sx);
+                setAttr('share-start-dot',   'cy', pts.sy);
                 setAttr('share-start-inner', 'cx', pts.sx);
                 setAttr('share-start-inner', 'cy', pts.sy);
             }
 
-            // Histogram bars
-            const barsContainer = $('share-histogram-bars');
-            barsContainer.innerHTML = '';
-            const numBars = Math.min(10, speeds.length || 1);
-            const maxSpeed = Math.max(...speeds, 1);
-            for (let i = 0; i < numBars; i++) {
-                const segmentSpeeds = speeds.slice(
-                    Math.floor(i * speeds.length / numBars),
-                    Math.floor((i + 1) * speeds.length / numBars)
-                );
-                const segAvg = segmentSpeeds.length > 0
-                    ? segmentSpeeds.reduce((a, b) => a + b, 0) / segmentSpeeds.length
-                    : 0;
-                const pct = (segAvg / maxSpeed) * 100;
-                const isMax = segAvg >= maxSpeed * 0.85;
-                const bar = document.createElement('div');
-                bar.className = `w-full rounded-[2px] ${isMax ? 'bg-brand shadow-[0_0_6px_rgba(204,255,0,0.4)]' : 'bg-zinc-600'}`;
-                bar.style.height = `${Math.max(15, pct)}%`;
-                barsContainer.appendChild(bar);
+            // Histogram bars with neon style (inspired by example)
+            const bars = $('share-histogram-bars');
+            if (bars) {
+                bars.innerHTML = '';
+                const numBars = 10;
+                const maxSpd  = Math.max(...speeds, 1);
+                for (let i = 0; i < numBars; i++) {
+                    let pct = 30 + Math.random() * 70;
+                    if (speeds.length > 0) {
+                        const seg = speeds.slice(
+                            Math.floor(i*speeds.length/numBars),
+                            Math.floor((i+1)*speeds.length/numBars)
+                        );
+                        const avg = seg.length > 0 ? seg.reduce((a,b)=>a+b,0)/seg.length : 0;
+                        pct = (avg/maxSpd)*100;
+                    }
+                    const pctClamped = Math.max(15, Math.min(100, pct));
+                    const bar = document.createElement('div');
+                    if (pctClamped >= 80) bar.className = 'share-hist-bar peak';
+                    else if (pctClamped >= 55) bar.className = 'share-hist-bar high';
+                    else if (pctClamped >= 35) bar.className = 'share-hist-bar mid';
+                    else bar.className = 'share-hist-bar';
+                    bar.style.height = `${pctClamped}%`;
+                    bars.appendChild(bar);
+                }
+                set('share-rpm-peak', `Peak: ${topSpeed} km/h`);
             }
-            // Peak RPM
-            setText('share-rpm-peak', `Peak: ${Math.round(maxSpeed * 65)}`);
 
             // Notes
-            if (notes) {
-                $('share-notes-row').classList.remove('hidden');
-                setText('share-notes', notes);
-            } else {
-                $('share-notes-row').classList.add('hidden');
+            const notesRow = $('share-notes-row');
+            if (notes && notesRow) {
+                notesRow.classList.add('visible');
+                set('share-notes', notes);
+            } else if (notesRow) {
+                notesRow.classList.remove('visible');
             }
 
-            // Reset style to standard
             shareStyle = 'standard';
             applyShareStyle();
-
-            // Show preview
-            $('share-preview').classList.remove('hidden');
-            $('share-preview').classList.add('flex');
-            lucide.createIcons();
+            preview.classList.add('open');
         }
 
-        // === STYLE SWITCHING ===
+        /* ═══════════════════════════════════════════════
+           SHARE STYLE SWITCHING
+        ═══════════════════════════════════════════════ */
         function setShareStyle(style) {
             shareStyle = style;
             applyShareStyle();
-            document.querySelectorAll('.style-btn').forEach(btn => {
-                const isActive = btn.dataset.style === style;
-                btn.className = `style-btn text-[10px] font-bold px-4 py-2 rounded-full active:scale-95 transition ${isActive ? 'bg-brand text-black border-brand' : 'border border-zinc-700 text-zinc-300'}`;
+            document.querySelectorAll('.style-chip').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.style === style);
             });
         }
 
+        function openShare() {
+            if (isTracking || isPaused) {
+                showToast('Selesaikan tracking dulu sebelum share');
+                return;
+            }
+            if (coordinates.length < 2) {
+                showToast('Belum ada rute untuk di-share');
+                return;
+            }
+            showResult();
+        }
+
         function applyShareStyle() {
-            const card = $('share-card');
-            const routeSvg = $('share-route-svg');
-            const distVal = $('share-dist');
-            const topVal = $('share-top');
-            if (!card || !routeSvg || !distVal || !topVal) return;
-            const els = {
-                elevationChart: document.querySelector('.share-elevation-chart'),
-                elevationLabel: document.querySelector('.share-elevation-label'),
-                histogram: document.querySelector('.share-histogram'),
-                avgLabel: document.querySelector('.share-avg-speed-label'),
-                leanAngle: document.querySelector('.share-lean-angle'),
-                rpmPeak: document.querySelector('.share-rpm-peak'),
-            };
+            const card    = $('share-card');
+            const svg     = $('share-route-svg');
+            const distEl  = $('share-dist');
+            if (!card || !svg || !distEl) return;
+
+            const row1    = card.querySelector('.share-row1');
+            const hist    = card.querySelector('.share-histogram');
+            const avgBlk  = card.querySelector('.share-avg-block');
+            const elevBlk = card.querySelector('.share-elevation-block');
+            const rpmEl   = $('share-rpm-peak');
 
             // Reset
-            card.classList.remove('layout-standard', 'layout-minimal', 'layout-stats');
-            routeSvg.className = 'w-11/12 h-full max-h-[200px] share-route-svg';
-            distVal.className = 'text-2xl font-black font-display tracking-tight text-brand share-distance-value';
-            topVal.className = 'text-2xl font-black font-display tracking-tight text-brand share-top-speed-value';
-            Object.values(els).forEach(el => { if (el) el.style.display = ''; });
+            distEl.className = 'share-stat-val accent lg';
+            if (hist) hist.style.display = '';
+            if (row1) row1.style.display = '';
+            if (avgBlk) avgBlk.style.display = '';
+            if (elevBlk) elevBlk.style.display = '';
+            svg.style.cssText = '';
+            svg.style.width   = '100%';
+            svg.style.height  = '130px';
 
             if (shareStyle === 'minimal') {
-                card.classList.add('layout-minimal');
-                ['elevationChart', 'elevationLabel', 'histogram', 'avgLabel', 'leanAngle', 'rpmPeak'].forEach(k => {
-                    if (els[k]) els[k].style.display = 'none';
-                });
-                routeSvg.className = 'w-11/12 h-full max-h-[140px] share-route-svg';
-                distVal.className = 'text-xl font-black font-display tracking-tight text-brand share-distance-value';
-                topVal.className = 'text-xl font-black font-display tracking-tight text-brand share-top-speed-value';
+                if (hist)   hist.style.display   = 'none';
+                if (avgBlk) avgBlk.style.display = 'none';
+                if (elevBlk) elevBlk.style.display = 'none';
+                svg.style.height = '100px';
+                distEl.className = 'share-stat-val accent';
             } else if (shareStyle === 'stats') {
-                card.classList.add('layout-stats');
-                ['elevationChart', 'elevationLabel', 'histogram', 'avgLabel', 'leanAngle', 'rpmPeak'].forEach(k => {
-                    if (els[k]) els[k].style.display = 'none';
-                });
-                routeSvg.className = 'absolute inset-0 opacity-15 h-full pointer-events-none share-route-svg';
-                distVal.className = 'text-4xl font-black font-display tracking-tight text-brand share-distance-value';
-                topVal.className = 'text-5xl font-black font-display tracking-tight text-brand share-top-speed-value';
+                if (hist) hist.style.display = 'none';
+                svg.style.position = 'absolute';
+                svg.style.opacity  = '0.08';
+                svg.style.inset    = '0';
+                svg.style.width    = '100%';
+                svg.style.height   = '100%';
+                distEl.className   = 'share-stat-val accent';
+                distEl.style.fontSize = '38px';
             }
         }
 
-        // === BACKGROUND SWITCHING ===
+        /* ═══════════════════════════════════════════════
+           SHARE BG
+        ═══════════════════════════════════════════════ */
         function setupShareBgInput() {
-            $('share-bg-input').addEventListener('change', function (e) {
+            $('share-bg-input').addEventListener('change', function(e) {
                 const file = e.target.files[0];
-                if (file) {
-                    const url = URL.createObjectURL(file);
-                    $('share-card').style.backgroundImage = `url(${url})`;
-                    $('share-card').style.backgroundSize = 'cover';
-                    $('share-card').style.backgroundPosition = 'center';
-                    showToast('Background diganti');
-                }
+                if (!file) return;
+                const url = URL.createObjectURL(file);
+                const card = $('share-card');
+                card.style.backgroundImage    = `url(${url})`;
+                card.style.backgroundSize     = 'cover';
+                card.style.backgroundPosition = 'center';
+                showToast('Background diganti');
             });
         }
 
         function resetShareBg() {
-            $('share-card').style.backgroundImage = '';
-            $('share-card').style.backgroundSize = '';
-            $('share-card').style.backgroundPosition = '';
-            $('share-bg-input').value = '';
+            const card = $('share-card');
+            card.style.backgroundImage = "url('https://images.unsplash.com/photo-1568772585407-9361f9bf3a87?q=80&w=1000')";
+            card.style.backgroundSize  = 'cover';
+            card.style.backgroundPosition = 'center';
+            $('share-bg-input').value  = '';
             showToast('Background di-reset');
         }
 
-        // === EXPORT IMAGE ===
+        /* ═══════════════════════════════════════════════
+           EXPORT IMAGE
+        ═══════════════════════════════════════════════ */
         async function exportShareCard() {
             const card = $('share-card');
             try {
-                const canvas = await html2canvas(card, {
-                    scale: 2,
-                    useCORS: true,
-                    backgroundColor: null,
-                    logging: false,
-                });
-                return new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
-            } catch (e) {
+                const cvs = await html2canvas(card, { scale:2, useCORS:true, backgroundColor:null, logging:false });
+                return new Promise(resolve => cvs.toBlob(resolve, 'image/png'));
+            } catch(e) {
                 showToast('Gagal render: ' + e.message);
                 return null;
             }
         }
 
-        // === EVENT LISTENERS ===
+        /* ═══════════════════════════════════════════════
+           EVENT LISTENERS
+        ═══════════════════════════════════════════════ */
         $('btn-close-preview').addEventListener('click', () => {
-            $('share-preview').classList.add('hidden');
-            $('share-preview').classList.remove('flex');
+            $('share-preview').classList.remove('open');
         });
 
         $('btn-download-share').addEventListener('click', async () => {
+            showToast('Mengekspor gambar...');
             const blob = await exportShareCard();
             if (!blob) return;
             const file = new File([blob], 'cekmotormu-route.png', { type: 'image/png' });
             if (navigator.canShare && navigator.canShare({ files: [file] })) {
                 await navigator.share({
-                    title: 'cekMotormu.id - My Route',
-                    text: `${$('in-track').value || 'Rute'} - cekMotormu.id`,
+                    title: 'cekMotormu.id – My Route',
+                    text: `${$('in-track')?.value || 'Rute'} – cekMotormu.id`,
                     files: [file],
                 });
             } else {
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
-                a.href = url;
-                a.download = 'cekmotormu-route.png';
-                a.click();
+                a.href = url; a.download = 'cekmotormu-route.png'; a.click();
                 URL.revokeObjectURL(url);
-                showToast('Gambar siap di-download');
+                showToast('✓ Gambar siap di-download');
             }
         });
 
@@ -927,11 +1908,11 @@
             const data = {
                 date: new Date().toISOString(),
                 coordinates, speeds, totalDistance, topSpeed,
-                elapsed: getElapsedSeconds(),
-                trackName: $('in-track').value || 'Untitled',
-                motor: $('in-motor').value || '',
-                odometer: $('in-odometer').value || '',
-                notes: $('in-notes').value || '',
+                elapsed:   getElapsedSeconds(),
+                trackName: $('in-track')?.value || 'Untitled',
+                motor:     $('in-motor')?.value || '',
+                odometer:  $('in-odometer')?.value || '',
+                notes:     $('in-notes')?.value || '',
             };
             localStorage.setItem('cekmotor_track_' + Date.now(), JSON.stringify(data));
             if (currentTrackId) {
@@ -939,12 +1920,12 @@
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        name: $('in-track').value || 'Untitled',
-                        motor: $('in-motor').value || '',
+                        name:  $('in-track')?.value || 'Untitled',
+                        motor: $('in-motor')?.value || '',
                     }),
-                }).catch(() => { });
+                }).catch(() => {});
             }
-            showToast('Rute tersimpan!');
+            showToast('✓ Rute tersimpan ke riwayat!');
         });
 
         setupShareBgInput();
