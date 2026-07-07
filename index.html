@@ -160,6 +160,7 @@
         }
         .gps-dot.active { background: var(--c-brand); box-shadow: 0 0 8px var(--c-brand); animation: gpsPulse 2s infinite; }
         .gps-dot.recording { background: var(--c-danger); box-shadow: 0 0 8px var(--c-danger); animation: gpsPulse 1s infinite; }
+        .gps-dot.degraded { background: #FFA500; box-shadow: 0 0 8px #FFA500; animation: gpsPulse 1.5s infinite; }
         @keyframes gpsPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
 
         /* Mode switcher */
@@ -1204,9 +1205,13 @@
         function setGpsStatus(state) {
             const dot = $('gps-dot');
             const lbl = $('gps-label');
+            if (!dot || !lbl) return;
             dot.className = 'gps-dot';
+            dot.style.background = '';
             if (state === 'active') { dot.classList.add('active'); lbl.textContent = 'GPS'; }
             else if (state === 'recording') { dot.classList.add('recording'); lbl.textContent = 'REC'; }
+            else if (state === 'degraded') { dot.classList.add('degraded'); lbl.textContent = 'GPS?'; dot.style.background = '#FFA500'; dot.style.boxShadow = '0 0 8px #FFA500'; }
+            else if (state === 'loading') { dot.style.background = 'rgba(255,255,255,0.2)'; lbl.textContent = 'GPS..'; dot.style.animation = 'none'; }
             else { lbl.textContent = 'GPS'; }
         }
 
@@ -1296,16 +1301,29 @@
 
         function showCurrentLocation() {
             if (!('geolocation' in navigator)) return;
-            navigator.geolocation.getCurrentPosition(
+            setGpsStatus('loading');
+            // Use a longer timeout for initial fix; keep watching for live movement
+            if (window._gpsWatch) { navigator.geolocation.clearWatch(window._gpsWatch); }
+            window._gpsWatch = navigator.geolocation.watchPosition(
                 (pos) => {
                     const loc = [pos.coords.latitude, pos.coords.longitude];
                     updateLocationMarker(loc);
                     map.setView(loc, 14);
-                    setGpsStatus('active');
+                    const acc = pos.coords.accuracy;
+                    if (acc < 30) setGpsStatus('active');
+                    else if (acc < 100) setGpsStatus('active');
+                    else setGpsStatus('degraded');
                 },
                 () => {},
-                { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+                { enableHighAccuracy: true, timeout: 30000, maximumAge: 5000 }
             );
+            // Also keep the dot green even before first fix
+            setTimeout(() => {
+                const dot = $('gps-dot');
+                if (dot && !dot.classList.contains('active') && !dot.classList.contains('recording') && !dot.classList.contains('degraded')) {
+                    dot.style.background = 'rgba(255,255,255,0.2)';
+                }
+            }, 5000);
         }
 
         /* ═══════════════════════════════════════════════
@@ -1429,12 +1447,40 @@
             requestWakeLock();
             sendStatus('tracking');
 
-            watchId = navigator.geolocation.watchPosition(
-                onPosition,
-                (err) => console.warn('Mencari sinyal GPS...'),
-                { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
-            );
+            // Stop the preview watch and start a dedicated tracking watch
+            if (window._gpsWatch) { navigator.geolocation.clearWatch(window._gpsWatch); window._gpsWatch = null; }
+
+            // GPS options: higher timeout for cold start, allow small age for smooth updates
+            const geoOpts = { enableHighAccuracy: true, timeout: 20000, maximumAge: 3000 };
+
+            watchId = navigator.geolocation.watchPosition(onPosition, onGeoError, geoOpts);
+            startGpsWatchdog();
             showToast('🚀 Tracking dimulai');
+        }
+
+        function onGeoError(err) {
+            console.warn('[GPS] Error:', err.code, err.message);
+            if (err.code === 3) {
+                // TIMEOUT – fallback to lower accuracy
+                showToast('📍 Akurasi GPS menurun, gunakan mode standar');
+                if (watchId) navigator.geolocation.clearWatch(watchId);
+                watchId = navigator.geolocation.watchPosition(onPosition, onGeoError, {
+                    enableHighAccuracy: false, timeout: 30000, maximumAge: 10000,
+                });
+                setGpsStatus('degraded');
+            } else if (err.code === 1) {
+                showToast('❌ Izin GPS ditolak. Aktifkan di pengaturan');
+            } else if (err.code === 2) {
+                showToast('📍 Sinyal GPS hilang, coba lagi...');
+                // Auto-retry after 10s
+                setTimeout(() => {
+                    if (isTracking && !watchId) {
+                        watchId = navigator.geolocation.watchPosition(onPosition, onGeoError, {
+                            enableHighAccuracy: true, timeout: 20000, maximumAge: 3000,
+                        });
+                    }
+                }, 10000);
+            }
         }
 
         function pauseTracking() {
@@ -1463,7 +1509,9 @@
             if (!isTracking && !isPaused) return;
             isTracking = false; isPaused = false; isFinished = true;
             clearInterval(timerInterval);
-            if (watchId) navigator.geolocation.clearWatch(watchId);
+            clearInterval(_gpsWatchdog);
+            if (watchId) { navigator.geolocation.clearWatch(watchId); watchId = null; }
+            if (window._gpsWatch) { navigator.geolocation.clearWatch(window._gpsWatch); window._gpsWatch = null; }
             releaseWakeLock();
             sendStatus('finished');
 
@@ -1484,6 +1532,7 @@
             isFinished = false; isTracking = false; isPaused = false;
             coordinates = []; speeds = [];
             totalDistance = 0; topSpeed = 0; currentTrackId = null;
+            _lastGpsFix = 0; _geoFailCount = 0; clearInterval(_gpsWatchdog);
             routeLine.setLatLngs([]);
             if (currentMarker) { map.removeLayer(currentMarker); currentMarker = null; }
             $('stat-time').textContent     = '00:00';
@@ -1495,10 +1544,48 @@
             $('btn-record').classList.remove('recording');
         }
 
+        let _lastGpsFix = 0;
+        let _geoFailCount = 0;
+        let _gpsWatchdog = null;
+
+        function startGpsWatchdog() {
+            clearInterval(_gpsWatchdog);
+            _gpsWatchdog = setInterval(() => {
+                if (!isTracking) return; // only during active tracking
+                const since = Date.now() - _lastGpsFix;
+                if (_lastGpsFix > 0 && since > 30000) {
+                    // No fix for 30s, try restarting watch
+                    showToast('📍 Sinyal GPS hilang, mencari ulang...');
+                    if (watchId) { navigator.geolocation.clearWatch(watchId); watchId = null; }
+                    watchId = navigator.geolocation.watchPosition(onPosition, onGeoError, {
+                        enableHighAccuracy: true, timeout: 20000, maximumAge: 3000,
+                    });
+                    _lastGpsFix = Date.now();
+                }
+            }, 15000);
+        }
+
         function onPosition(pos) {
-            const { latitude, longitude, speed } = pos.coords;
+            const { latitude, longitude, speed, accuracy } = pos.coords;
             const loc = [latitude, longitude];
-            const speedKmh = speed && speed > 0 ? Math.round(speed * 3.6) : 0;
+
+            // Track accuracy for status feedback
+            _geoFailCount = 0;
+            if (accuracy < 30) setGpsStatus('recording');
+            else if (accuracy < 100) setGpsStatus('recording');
+            else setGpsStatus('degraded');
+
+            // Derive speed from position change if device doesn't provide it
+            let speedKmh = speed && speed > 0 ? Math.round(speed * 3.6) : 0;
+            if (speedKmh === 0 && coordinates.length > 0) {
+                const last = coordinates[coordinates.length - 1];
+                const dt = (Date.now() - _lastGpsFix) / 1000 || 1;
+                const dist = calculateHaversine(last[0], last[1], latitude, longitude) * 1000;
+                if (dt > 0 && dist > 1) {
+                    speedKmh = Math.round((dist / dt) * 3.6);
+                }
+            }
+            _lastGpsFix = Date.now();
 
             $('stat-speed').textContent = speedKmh;
             updateSpeedArc(speedKmh);
