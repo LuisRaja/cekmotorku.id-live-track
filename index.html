@@ -1013,8 +1013,8 @@
         /* ── Speedometer Ring ── */
         .speedo-wrap {
             position: absolute;
-            left: 50%; top: 44%;
-            transform: translate(-50%, -50%);
+            left: 50%; bottom: 155px;
+            transform: translateX(-50%);
             z-index: 12;
             display: flex; flex-direction: column; align-items: center;
         }
@@ -1050,7 +1050,7 @@
         /* ── Ride Controls ── */
         .ride-btns {
             position: absolute;
-            bottom: calc(var(--nav-h, 80px) + 90px);
+            bottom: 60px;
             left: 50%; transform: translateX(-50%);
             display: none; gap: 12px;
             z-index: 15;
@@ -1082,7 +1082,7 @@
         /* ── Stats Strip ── */
         .stats-strip {
             position: absolute;
-            bottom: var(--nav-h, 80px);
+            bottom: 0;
             left: 0; right: 0;
             background: rgba(10,10,18,0.92);
             backdrop-filter: blur(20px);
@@ -1090,7 +1090,7 @@
             border-top: 1px solid var(--c-border);
             display: flex;
             z-index: 15;
-            padding: 12px 0 10px;
+            padding: 10px 0 8px;
         }
         .ss-item {
             flex: 1;
@@ -1229,8 +1229,6 @@
         .cta-save-btn:active { background: var(--c-surface2); }
         .cta-save-btn svg { width: 16px; height: 16px; stroke: var(--c-text-2); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
-        /* ── Nav bar height var ── */
-        :root { --nav-h: 80px; }
     </style>
 </head>
 <body>
