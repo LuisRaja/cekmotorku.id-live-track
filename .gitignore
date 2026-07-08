@@ -7,3 +7,7 @@ dist/
 Thumbs.db
 pgdata/
 backend/data/
+venv/
+__pycache__/
+*.pyc
+*.pyo
