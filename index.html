@@ -262,7 +262,7 @@
 
         /* Touring sheet trigger handle */
         #touring-handle {
-            display: none;
+            display: flex;
             justify-content: center; align-items: center;
             padding: 8px 0 4px;
             cursor: pointer;
@@ -468,6 +468,42 @@
             font-family: var(--f-ui); font-size: 12px; font-weight: 600;
             color: var(--c-brand);
         }
+
+        /* ══════════════════════════════════════════
+           LIVE ROW (tracking)
+        ══════════════════════════════════════════ */
+        #hud-live-row {
+            display: grid; grid-template-columns: 1fr 1fr 1fr 1fr;
+            border-top: 1px solid var(--c-border);
+            padding: 8px 10px 6px;
+        }
+        #hud-live-row.hidden { display: none; }
+        .live-cell { text-align: center; }
+        .live-label {
+            font-family: var(--f-ui); font-size: 7px; font-weight: 700;
+            letter-spacing: 0.6px; text-transform: uppercase;
+            color: var(--c-text-3);
+        }
+        .live-val {
+            font-family: var(--f-num); font-size: 15px; font-weight: 700;
+            color: var(--c-text); line-height: 1.3;
+        }
+        .live-unit {
+            font-family: var(--f-ui); font-size: 7px; font-weight: 600;
+            color: var(--c-text-3); text-transform: uppercase;
+        }
+
+        /* Share card odometer */
+        #share-odometer-row {
+            display: flex; align-items: center; gap: 6px;
+            padding: 2px 0;
+            font-family: var(--f-ui); font-size: 9px; font-weight: 600;
+            color: var(--c-text-3);
+        }
+        #share-odometer { color: var(--c-text); }
+
+        /* Route canvas always block during tracking */
+        #route-canvas.tracking { display: block; }
 
         /* ══════════════════════════════════════════
            BOTTOM NAV
@@ -923,6 +959,30 @@
                     </div>
 
                     <!-- Ride controls (show when tracking) -->
+                    <div id="hud-live-row" class="hidden">
+                        <div class="live-cell">
+                            <div class="live-label">G-Force</div>
+                            <div class="live-val" id="live-gforce">0.00</div>
+                            <div class="live-unit">g</div>
+                        </div>
+                        <div class="live-cell">
+                            <div class="live-label">Lean</div>
+                            <div class="live-val" id="live-lean">0</div>
+                            <div class="live-unit">&deg;</div>
+                        </div>
+                        <div class="live-cell">
+                            <div class="live-label">Alt</div>
+                            <div class="live-val" id="live-alt">--</div>
+                            <div class="live-unit">m</div>
+                        </div>
+                        <div class="live-cell">
+                            <div class="live-label">Apex</div>
+                            <div class="live-val" id="live-apex">0</div>
+                            <div class="live-unit">km/h</div>
+                        </div>
+                    </div>
+
+                    <!-- Ride controls (show when tracking) -->
                     <div id="ride-controls">
                         <button class="ride-btn" id="btn-pause-ride" onclick="toggleTracking()">
                             <svg id="icon-pause-inner" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
@@ -1111,6 +1171,12 @@
                         <div id="share-notes">-</div>
                     </div>
 
+                    <!-- Odometer -->
+                    <div id="share-odometer-row">
+                        <span class="share-notes-lbl">ODO Awal</span>
+                        <span id="share-odometer">-</span>
+                    </div>
+
                     <div class="share-footer">cekMotormu.id</div>
                 </div>
 
@@ -1263,6 +1329,8 @@
             initMap();
             setupInputListeners();
             switchMode('speed');
+            toggleTouringSheet();
+            initOrientation();
             resizeCanvas();
             connectBackend();
             showCurrentLocation();
@@ -1334,20 +1402,15 @@
             const slider      = $('mode-slider');
             const btnSpeed    = $('btn-mode-speed');
             const btnTouring  = $('btn-mode-touring');
-            const handle      = $('touring-handle');
 
             if (mode === 'speed') {
                 slider.classList.remove('touring');
                 btnSpeed.classList.add('active');
                 btnTouring.classList.remove('active');
-                handle.style.display = 'none';
-                // Close sheet if open
-                if (isTouringSheetOpen) toggleTouringSheet();
             } else {
                 slider.classList.add('touring');
                 btnTouring.classList.add('active');
                 btnSpeed.classList.remove('active');
-                handle.style.display = 'flex';
                 setTimeout(() => map.invalidateSize(), 200);
             }
         }
@@ -1402,6 +1465,107 @@
         }
 
         /* ═══════════════════════════════════════════════
+           SPEED HEATMAP
+        ═══════════════════════════════════════════════ */
+        function speedToColor(kmh) {
+            const stops = [
+                [0,   '#0055FF'],
+                [20,  '#00AAFF'],
+                [40,  '#00FF55'],
+                [60,  '#AAFF00'],
+                [80,  '#FFD000'],
+                [100, '#FF6600'],
+                [120, '#FF0044'],
+            ];
+            const spd = Math.max(0, Math.min(140, kmh));
+            for (let i = 0; i < stops.length - 1; i++) {
+                if (spd >= stops[i][0] && spd <= stops[i+1][0]) {
+                    const t = (spd - stops[i][0]) / (stops[i+1][0] - stops[i][0]);
+                    const c1 = stops[i][1], c2 = stops[i+1][1];
+                    const r1 = parseInt(c1.slice(1,3), 16), g1 = parseInt(c1.slice(3,5), 16), b1 = parseInt(c1.slice(5,7), 16);
+                    const r2 = parseInt(c2.slice(1,3), 16), g2 = parseInt(c2.slice(3,5), 16), b2 = parseInt(c2.slice(5,7), 16);
+                    const r = Math.round(r1 + t * (r2 - r1));
+                    const g = Math.round(g1 + t * (g2 - g1));
+                    const b = Math.round(b1 + t * (b2 - b1));
+                    return `rgb(${r},${g},${b})`;
+                }
+            }
+            return stops[stops.length-1][1];
+        }
+
+        function drawSpeedHeatmap() {
+            if (coordinates.length < 2) return;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.lineWidth = 6; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+            for (let i = 0; i < coordinates.length - 1; i++) {
+                const p1 = map.latLngToContainerPoint(new L.LatLng(coordinates[i][0], coordinates[i][1]));
+                const p2 = map.latLngToContainerPoint(new L.LatLng(coordinates[i+1][0], coordinates[i+1][1]));
+                const spd = speeds[i] || 0;
+                ctx.strokeStyle = speedToColor(spd);
+                ctx.shadowColor = speedToColor(spd);
+                ctx.shadowBlur = 10;
+                ctx.beginPath();
+                ctx.moveTo(p1.x, p1.y);
+                ctx.lineTo(p2.x, p2.y);
+                ctx.stroke();
+            }
+            ctx.shadowBlur = 0;
+        }
+
+        /* ═══════════════════════════════════════════════
+           DEVICE ORIENTATION & MOTION
+        ═══════════════════════════════════════════════ */
+        let _leanPrev = 0;
+        let _orientationActive = false;
+        let _gPrev = 0;
+
+        function onDeviceOrientation(e) {
+            if (!isTracking) return;
+            const gamma = e.gamma;
+            if (gamma == null) return;
+            const raw = Math.abs(gamma);
+            const a = 0.3;
+            _leanPrev += a * (raw - _leanPrev);
+            const lean = Math.round(_leanPrev);
+            $('live-lean').textContent = lean;
+        }
+
+        function onDeviceMotion(e) {
+            if (!isTracking) return;
+            const a = e.accelerationIncludingGravity;
+            if (!a) return;
+            const raw = Math.sqrt(a.x*a.x + a.y*a.y + a.z*a.z);
+            const g = raw / 9.80665;
+            const smoothed = 0.3 * g + 0.7 * _gPrev;
+            _gPrev = smoothed;
+            $('live-gforce').textContent = smoothed.toFixed(2);
+        }
+
+        function initOrientation() {
+            let hasOrientation = false;
+            if (window.DeviceOrientationEvent) {
+                if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+                    DeviceOrientationEvent.requestPermission().then(s => {
+                        if (s === 'granted') { window.addEventListener('deviceorientation', onDeviceOrientation); hasOrientation = true; }
+                    }).catch(() => {});
+                } else {
+                    window.addEventListener('deviceorientation', onDeviceOrientation);
+                    hasOrientation = true;
+                }
+            }
+            if (window.DeviceMotionEvent) {
+                if (typeof DeviceMotionEvent.requestPermission === 'function') {
+                    DeviceMotionEvent.requestPermission().then(s => {
+                        if (s === 'granted') { window.addEventListener('devicemotion', onDeviceMotion); _orientationActive = true; }
+                    }).catch(() => {});
+                } else {
+                    window.addEventListener('devicemotion', onDeviceMotion);
+                    _orientationActive = true;
+                }
+            }
+        }
+
+        /* ═══════════════════════════════════════════════
            TRACKING
         ═══════════════════════════════════════════════ */
         function toggleTracking() {
@@ -1446,6 +1610,12 @@
             watchId = navigator.geolocation.watchPosition(onPosition, onGeoError, geoOpts);
             startGpsWatchdog();
             showToast('Tracking dimulai');
+
+            // Live data row
+            $('hud-live-row').classList.remove('hidden');
+            canvas.classList.add('tracking');
+            // Ensure orientation listener is active
+            if (!_orientationActive) initOrientation();
         }
 
         function onGeoError(err) {
@@ -1514,6 +1684,9 @@
 
             setGpsStatus('active');
             updateSpeedArc(0);
+            // Hide live row, keep canvas visible for share card
+            $('hud-live-row').classList.add('hidden');
+            canvas.classList.remove('tracking');
             showResult();
             showToast('Touring selesai!');
         }
@@ -1604,6 +1777,17 @@
             if (followUser) map.setView(loc, is3dMode ? 18 : 15);
 
             sendPoint(latitude, longitude, speedKmh);
+
+            // Live data updates during tracking
+            if (isTracking) {
+                // Altitude
+                const alt = pos.coords.altitude;
+                $('live-alt').textContent = alt != null ? Math.round(alt) + ' m' : '-';
+                // Apex Speed (= top speed)
+                $('live-apex').textContent = topSpeed;
+                drawSpeedHeatmap();
+            }
+
             if (!customBg.classList.contains('hidden')) drawCanvasRoute();
         }
 
@@ -1767,6 +1951,7 @@
             set('share-avg',  avgSpeed.toFixed(1));
             set('share-topspeed-label', `Top Speed: ${topSpeed} km/h`);
             set('share-lean-label', `Lean Angle Avg: ${avgLean}°`);
+            set('share-odometer', odometer || '-');
 
             // Mini elevation chart - generate smooth curve based on distance
             const elevPath = $('share-elevation-path');
