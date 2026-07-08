@@ -1087,6 +1087,16 @@
         }
         .ss-unit { font-size: 9px; font-weight: 600; color: var(--c-text-2); }
 
+        /* ── Ride HUD hidden until tracking starts ── */
+        #s-ride .hud-row,
+        #s-ride .ride-badge,
+        #s-ride .speedo-wrap,
+        #s-ride .stats-strip { display: none; }
+        #s-ride.tracking .hud-row { display: flex; }
+        #s-ride.tracking .ride-badge { display: block; }
+        #s-ride.tracking .speedo-wrap { display: flex; }
+        #s-ride.tracking .stats-strip { display: flex; }
+
         /* ══════════════════════════════════════════
            SCREEN 3 — SELESAI (Summary)
         ══════════════════════════════════════════ */
@@ -2143,6 +2153,7 @@
         function startTracking() {
             isTracking = true; isPaused = false;
             switchScreen('ride');
+            $('s-ride').classList.add('tracking');
             createTrack();
 
             // btn-record on bottom nav
@@ -2232,6 +2243,7 @@
             $('record-label').textContent = 'MULAI';
             $('ride-btns').classList.remove('visible');
 
+            $('s-ride').classList.remove('tracking');
             setGpsStatus('active');
             updateSpeedArc(0);
             populateFinishScreen();
@@ -2256,6 +2268,7 @@
             updateSpeedArc(0);
             $('ride-btns').classList.remove('visible');
             $('btn-record').classList.remove('recording');
+            $('s-ride').classList.remove('tracking');
             switchScreen('ride');
         }
 
