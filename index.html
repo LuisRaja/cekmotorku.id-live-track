@@ -849,7 +849,6 @@
             <div style="display:flex;align-items:center;gap:10px;">
                 <div class="gps-status">
                     <div class="gps-dot" id="gps-dot"></div>
-                    <span id="gps-label">GPS</span>
                 </div>
 
                 <div class="mode-pill" id="mode-pill">
@@ -1204,15 +1203,13 @@
 
         function setGpsStatus(state) {
             const dot = $('gps-dot');
-            const lbl = $('gps-label');
-            if (!dot || !lbl) return;
+            if (!dot) return;
             dot.className = 'gps-dot';
             dot.style.background = '';
-            if (state === 'active') { dot.classList.add('active'); lbl.textContent = 'GPS'; }
-            else if (state === 'recording') { dot.classList.add('recording'); lbl.textContent = 'REC'; }
-            else if (state === 'degraded') { dot.classList.add('degraded'); lbl.textContent = 'GPS?'; dot.style.background = '#FFA500'; dot.style.boxShadow = '0 0 8px #FFA500'; }
-            else if (state === 'loading') { dot.style.background = 'rgba(255,255,255,0.2)'; lbl.textContent = 'GPS..'; dot.style.animation = 'none'; }
-            else { lbl.textContent = 'GPS'; }
+            if (state === 'active') { dot.classList.add('active'); }
+            else if (state === 'recording') { dot.classList.add('recording'); }
+            else if (state === 'degraded') { dot.classList.add('degraded'); dot.style.background = '#FFA500'; dot.style.boxShadow = '0 0 8px #FFA500'; }
+            else if (state === 'loading') { dot.style.background = 'rgba(255,255,255,0.2)'; dot.style.animation = 'none'; }
         }
 
         function updateSpeedArc(speedKmh) {
@@ -1455,23 +1452,23 @@
 
             watchId = navigator.geolocation.watchPosition(onPosition, onGeoError, geoOpts);
             startGpsWatchdog();
-            showToast('🚀 Tracking dimulai');
+            showToast('Tracking dimulai');
         }
 
         function onGeoError(err) {
             console.warn('[GPS] Error:', err.code, err.message);
             if (err.code === 3) {
                 // TIMEOUT – fallback to lower accuracy
-                showToast('📍 Akurasi GPS menurun, gunakan mode standar');
+                showToast('Akurasi GPS menurun, gunakan mode standar');
                 if (watchId) navigator.geolocation.clearWatch(watchId);
                 watchId = navigator.geolocation.watchPosition(onPosition, onGeoError, {
                     enableHighAccuracy: false, timeout: 30000, maximumAge: 10000,
                 });
                 setGpsStatus('degraded');
             } else if (err.code === 1) {
-                showToast('❌ Izin GPS ditolak. Aktifkan di pengaturan');
+                showToast('Izin GPS ditolak. Aktifkan di pengaturan');
             } else if (err.code === 2) {
-                showToast('📍 Sinyal GPS hilang, coba lagi...');
+                showToast('Sinyal GPS hilang, coba lagi...');
                 // Auto-retry after 10s
                 setTimeout(() => {
                     if (isTracking && !watchId) {
@@ -1494,14 +1491,14 @@
                 playIcon.style.display   = '';
                 if (pauseLabel) pauseLabel.textContent = 'LANJUT';
                 sendStatus('paused');
-                showToast('⏸ Tracking dijeda');
+                showToast('Tracking dijeda');
             } else {
                 if (pauseStart) { pausedDuration += Date.now() - pauseStart; pauseStart = null; }
                 pauseIcon.style.display  = '';
                 playIcon.style.display   = 'none';
                 if (pauseLabel) pauseLabel.textContent = 'JEDA';
                 sendStatus('tracking');
-                showToast('▶ Dilanjutkan');
+                showToast('Dilanjutkan');
             }
         }
 
@@ -1525,7 +1522,7 @@
             setGpsStatus('active');
             updateSpeedArc(0);
             showResult();
-            showToast('🏁 Touring selesai!');
+            showToast('Touring selesai!');
         }
 
         function resetForNewTrack() {
@@ -1555,7 +1552,7 @@
                 const since = Date.now() - _lastGpsFix;
                 if (_lastGpsFix > 0 && since > 30000) {
                     // No fix for 30s, try restarting watch
-                    showToast('📍 Sinyal GPS hilang, mencari ulang...');
+                    showToast('Sinyal GPS hilang, mencari ulang...');
                     if (watchId) { navigator.geolocation.clearWatch(watchId); watchId = null; }
                     watchId = navigator.geolocation.watchPosition(onPosition, onGeoError, {
                         enableHighAccuracy: true, timeout: 20000, maximumAge: 3000,
